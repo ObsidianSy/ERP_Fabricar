@@ -21,9 +21,9 @@ const checkAdmin = (req: any, res: Response, next: any) => {
 router.get('/', checkAdmin, async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
-            SELECT id, nome, email, cargo, ativo, created_at
+            SELECT id, nome, email, cargo, ativo, criado_em as created_at
             FROM obsidian.usuarios
-            ORDER BY created_at DESC
+            ORDER BY criado_em DESC
         `);
 
         res.json(result.rows);
@@ -66,9 +66,9 @@ router.post('/', checkAdmin, async (req: Request, res: Response) => {
 
         // Inserir usuário
         const result = await pool.query(`
-            INSERT INTO obsidian.usuarios (nome, email, senha_hash, cargo, ativo, created_at)
+            INSERT INTO obsidian.usuarios (nome, email, senha_hash, cargo, ativo, criado_em)
             VALUES ($1, $2, $3, $4, true, NOW())
-            RETURNING id, nome, email, cargo, ativo, created_at
+            RETURNING id, nome, email, cargo, ativo, criado_em as created_at
         `, [nome, email, senhaHash, cargo || 'operador']);
 
         res.status(201).json({
@@ -158,7 +158,7 @@ router.put('/:id', checkAdmin, async (req: Request, res: Response) => {
             UPDATE obsidian.usuarios
             SET ${updates.join(', ')}
             WHERE id = $${paramCount}
-            RETURNING id, nome, email, cargo, ativo, created_at
+            RETURNING id, nome, email, cargo, ativo, criado_em as created_at
         `;
 
         const result = await pool.query(query, values);
