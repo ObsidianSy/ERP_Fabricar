@@ -15,6 +15,7 @@ import { Plus, Search, Edit, Trash2, Package, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { consultarDados, gerarIdMateriaPrima } from "@/services/n8nIntegration";
 import * as XLSX from 'xlsx';
+import { api } from '@/lib/api';
 
 interface Produto {
   SKU: string;
@@ -104,8 +105,8 @@ const ReceitaProduto = () => {
     try {
       const [dadosProdutos, dadosMateriaPrima, dadosReceitas] = await Promise.all([
         consultarDados('Estoque'),
-        fetch('http://localhost:3001/api/materia-prima').then(res => res.json()),
-        fetch('http://localhost:3001/api/receita-produto').then(res => res.json())
+        api.get('/materia-prima'),
+        api.get('/receita-produto')
       ]);
 
       setProdutos(Array.isArray(dadosProdutos) ? dadosProdutos : []);
@@ -234,25 +235,13 @@ const ReceitaProduto = () => {
 
       for (const [skuProduto, componentes] of Object.entries(receitasPorProduto)) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/receita-produto`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sku_produto: skuProduto,
-              items: componentes
-            })
+          const response = await api.post('/receita-produto', {
+            sku_produto: skuProduto,
+            items: componentes
           });
 
-          if (response.ok) {
-            sucessos += componentes.length;
-            console.log(`✅ Receita do produto ${skuProduto} salva com sucesso`);
-          } else {
-            const errorText = await response.text();
-            console.error(`❌ Erro ao salvar receita do produto ${skuProduto}:`, errorText);
-            produtosComErro.push(skuProduto);
-            detalhesErros[skuProduto] = errorText;
-            erros += componentes.length;
-          }
+          sucessos += componentes.length;
+          console.log(`✅ Receita do produto ${skuProduto} salva com sucesso`);
         } catch (error: any) {
           console.error(`❌ Erro ao salvar receita do produto ${skuProduto}:`, error);
           produtosComErro.push(skuProduto);
@@ -343,14 +332,7 @@ const ReceitaProduto = () => {
         }))
       };
 
-      const response = await fetch('http://localhost:3001/api/receita-produto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(receitaData)
-      });
-
-      if (!response.ok) throw new Error('Erro ao salvar receita');
-
+      await api.post('/receita-produto', receitaData);
       toast.success("Receita cadastrada com sucesso!");
       setShowAddDialog(false);
       setFormData({
@@ -358,9 +340,9 @@ const ReceitaProduto = () => {
         materiasPrimas: [{ skuMateriaPrima: "", quantidade: "", unidadeMedida: "" }]
       });
       carregarDados();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar receita:", error);
-      toast.error("Erro ao salvar receita");
+      toast.error("Erro ao salvar receita: " + error.message);
     }
   };
 
@@ -424,20 +406,13 @@ const ReceitaProduto = () => {
         }))
       };
 
-      const response = await fetch('http://localhost:3001/api/receita-produto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(receitaData)
-      });
-
-      if (!response.ok) throw new Error('Erro ao atualizar receita');
-
+      await api.post('/receita-produto', receitaData);
       toast.success("Receita atualizada com sucesso!");
       setShowEditDialog(false);
       carregarDados();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar receita:", error);
-      toast.error("Erro ao atualizar receita");
+      toast.error("Erro ao atualizar receita: " + error.message);
     }
   };
 
@@ -484,21 +459,13 @@ const ReceitaProduto = () => {
         ativo: true
       };
 
-      const url = editingMateriaPrima
-        ? `http://localhost:3001/api/materia-prima/${materiaPrimaFormData.sku}`
-        : 'http://localhost:3001/api/materia-prima';
-
-      const method = editingMateriaPrima ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mpData)
-      });
-
-      if (!response.ok) throw new Error('Erro ao salvar');
-
-      toast.success(editingMateriaPrima ? "Matéria-prima atualizada!" : "Matéria-prima cadastrada!");
+      if (editingMateriaPrima) {
+        await api.put(`/materia-prima/${materiaPrimaFormData.sku}`, mpData);
+        toast.success("Matéria-prima atualizada!");
+      } else {
+        await api.post('/materia-prima', mpData);
+        toast.success("Matéria-prima cadastrada!");
+      }
 
       // Limpar formulário e fechar modal
       setShowMateriaPrimaDialog(false);
@@ -513,9 +480,9 @@ const ReceitaProduto = () => {
       });
 
       carregarDados();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar matéria-prima:", error);
-      toast.error("Erro ao salvar matéria-prima");
+      toast.error("Erro ao salvar matéria-prima: " + error.message);
     }
   };
 
@@ -523,17 +490,12 @@ const ReceitaProduto = () => {
     if (!confirm("Deseja realmente excluir esta matéria-prima?")) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/materia-prima/${sku}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Erro ao excluir');
-
+      await api.delete(`/materia-prima/${sku}`);
       toast.success("Matéria-prima excluída!");
       carregarDados();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao excluir matéria-prima:", error);
-      toast.error("Erro ao excluir matéria-prima");
+      toast.error("Erro ao excluir matéria-prima: " + error.message);
     }
   };
 
