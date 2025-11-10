@@ -270,10 +270,10 @@ const ReceitaProduto = () => {
       // Exibir resultado
       const totalProdutos = Object.keys(receitasPorProduto).length;
       if (sucessos > 0) {
-        const mensagemErro = erros > 0 
+        const mensagemErro = erros > 0
           ? ` | ❌ ${produtosComErro.length} produtos com erro: ${produtosComErro.slice(0, 5).join(', ')}${produtosComErro.length > 5 ? '...' : ''}`
           : '';
-        
+
         toast.success("Importação concluída!", {
           description: `✅ ${totalProdutos - produtosComErro.length} produtos com ${sucessos} componentes importados${mensagemErro}`,
           duration: 8000

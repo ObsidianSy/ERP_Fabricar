@@ -99,7 +99,7 @@ receitaProdutoRouter.post('/', async (req: Request, res: Response) => {
             } catch (insertError: any) {
                 console.error(`❌ Erro ao criar produto ${sku_produto}:`, insertError.message);
                 await client.query('ROLLBACK');
-                return res.status(500).json({ 
+                return res.status(500).json({
                     error: 'Erro ao criar produto automaticamente',
                     details: insertError.message,
                     sku: sku_produto
@@ -149,7 +149,7 @@ receitaProdutoRouter.post('/', async (req: Request, res: Response) => {
         await client.query('ROLLBACK');
         console.error(`❌ Erro ao salvar receita do produto ${req.body.sku_produto}:`, error.message);
         console.error('Stack:', error.stack);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Erro ao salvar receita',
             details: error.message,
             sku: req.body.sku_produto
