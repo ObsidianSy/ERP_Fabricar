@@ -358,7 +358,7 @@ class OrdemProducaoService {
     /**
      * Cancelar OP (estorna MP se já iniciada)
      */
-    async cancelarOP(id: number, motivo?: string, userEmail?: string) {
+    async cancelarOP(id: number, motivo?: string, userEmail?: string, userName?: string) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -449,7 +449,7 @@ class OrdemProducaoService {
     /**
      * Atualizar OP (apenas campos editáveis)
      */
-    async atualizarOP(id: number, dados: Partial<OrdemProducao>, userEmail?: string) {
+    async atualizarOP(id: number, dados: Partial<OrdemProducao>, userEmail?: string, userName?: string) {
         try {
             const campos: string[] = [];
             const valores: any[] = [];

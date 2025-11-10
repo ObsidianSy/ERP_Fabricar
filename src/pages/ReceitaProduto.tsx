@@ -712,6 +712,7 @@ const ReceitaProduto = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-16">Foto</TableHead>
                       <TableHead>SKU Produto</TableHead>
                       <TableHead>Nome Produto</TableHead>
                       <TableHead>SKU Matéria-Prima</TableHead>
@@ -723,6 +724,17 @@ const ReceitaProduto = () => {
                   <TableBody>
                     {filteredReceitas.map((receita, index) => (
                       <TableRow key={index}>
+                        <TableCell>
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage
+                              src={`${API_BASE_URL}/api/produto-fotos/${receita["SKU Produto"]}/thumbnail`}
+                              alt={getProdutoNome(receita["SKU Produto"])}
+                            />
+                            <AvatarFallback className="text-xs bg-muted">
+                              {receita["SKU Produto"].substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </TableCell>
                         <TableCell className="font-medium">{receita["SKU Produto"]}</TableCell>
                         <TableCell>{getProdutoNome(receita["SKU Produto"])}</TableCell>
                         <TableCell>{receita["SKU Matéria-Prima"]}</TableCell>
@@ -768,16 +780,30 @@ const ReceitaProduto = () => {
               {selectedProduct && (
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">
-                        {selectedProduct} - {getProdutoNome(selectedProduct)}
-                      </h3>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="w-16 h-16">
+                        <AvatarImage
+                          src={`${API_BASE_URL}/api/produto-fotos/${selectedProduct}/thumbnail`}
+                          alt={getProdutoNome(selectedProduct)}
+                        />
+                        <AvatarFallback className="text-sm bg-muted">
+                          {selectedProduct.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          {selectedProduct} - {getProdutoNome(selectedProduct)}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Receita completa do produto
+                        </p>
+                      </div>
                     </div>
 
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-16">Foto</TableHead>
                           <TableHead>SKU Matéria-Prima</TableHead>
                           <TableHead>Nome Matéria-Prima</TableHead>
                           <TableHead>Quantidade por Produto</TableHead>
@@ -787,6 +813,17 @@ const ReceitaProduto = () => {
                       <TableBody>
                         {getReceitasPorProduto(selectedProduct).map((receita, index) => (
                           <TableRow key={index}>
+                            <TableCell>
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage
+                                  src={`${API_BASE_URL}/api/materia-prima-fotos/${receita["SKU Matéria-Prima"]}/thumbnail`}
+                                  alt={getMateriaPrimaNome(receita["SKU Matéria-Prima"])}
+                                />
+                                <AvatarFallback className="text-xs bg-muted">
+                                  {receita["SKU Matéria-Prima"].substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
                             <TableCell className="font-medium">{receita["SKU Matéria-Prima"]}</TableCell>
                             <TableCell>{getMateriaPrimaNome(receita["SKU Matéria-Prima"])}</TableCell>
                             <TableCell>
