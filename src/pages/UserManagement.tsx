@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, Plus, Edit, Trash2, Check, AlertCircle, Shield, User } from 'lucide-react';
 import { API_BASE_URL } from '@/config/api';
+import { api } from '@/lib/api';
 
 interface Usuario {
     id: string;
@@ -56,17 +57,7 @@ export default function UserManagement() {
     const carregarUsuarios = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch(`${API_BASE_URL}/api/usuarios`, {
-                headers: {
-                    'x-user-cargo': usuarioLogado?.cargo || 'operador'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Erro ao carregar usuários');
-            }
-
-            const data = await response.json();
+            const data = await api.get<Usuario[]>('/usuarios');
             setUsuarios(data);
         } catch (error: any) {
             setErro('Erro ao carregar usuários: ' + error.message);
@@ -123,12 +114,6 @@ export default function UserManagement() {
         }
 
         try {
-            const url = editingUser
-                ? `${API_BASE_URL}/api/usuarios/${editingUser.id}`
-                : `${API_BASE_URL}/api/usuarios`;
-
-            const method = editingUser ? 'PUT' : 'POST';
-
             const payload: any = {
                 nome: form.nome,
                 email: form.email,
@@ -139,21 +124,14 @@ export default function UserManagement() {
                 payload.senha = form.senha;
             }
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-user-cargo': usuarioLogado?.cargo || 'operador'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Erro ao salvar usuário');
+            if (editingUser) {
+                await api.put(`/usuarios/${editingUser.id}`, payload);
+                setSucesso('Usuário atualizado com sucesso!');
+            } else {
+                await api.post('/usuarios', payload);
+                setSucesso('Usuário criado com sucesso!');
             }
 
-            setSucesso(editingUser ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!');
             setIsDialogOpen(false);
             carregarUsuarios();
         } catch (error: any) {
@@ -165,17 +143,7 @@ export default function UserManagement() {
         if (!confirm('Deseja realmente inativar este usuário?')) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/usuarios/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'x-user-cargo': usuarioLogado?.cargo || 'operador'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Erro ao inativar usuário');
-            }
-
+            await api.delete(`/usuarios/${id}`);
             setSucesso('Usuário inativado com sucesso!');
             carregarUsuarios();
         } catch (error: any) {
