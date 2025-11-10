@@ -62,6 +62,10 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' })); // Parser JSON
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware de autenticação (extrai usuário do token JWT)
+import { authMiddleware } from './middleware/authMiddleware';
+app.use(authMiddleware);
+
 // Logger simples
 app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`📥 ${req.method} ${req.path} - ${req.ip}`);

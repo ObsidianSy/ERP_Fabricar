@@ -133,8 +133,8 @@ receitaProdutoRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'receita_produto_criada_atualizada',
             entity_type: 'receita_produto',
             entity_id: sku_produto,
@@ -175,8 +175,8 @@ receitaProdutoRouter.delete('/:sku', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'receita_produto_excluida',
             entity_type: 'receita_produto',
             entity_id: sku,
@@ -191,3 +191,4 @@ receitaProdutoRouter.delete('/:sku', async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Erro ao excluir receita' });
     }
 });
+

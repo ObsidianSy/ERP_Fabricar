@@ -57,8 +57,8 @@ materiaPrimaRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'materia_prima_criada',
             entity_type: 'materia_prima',
             entity_id: sku_mp,
@@ -123,8 +123,8 @@ materiaPrimaRouter.put('/:sku', async (req: Request, res: Response) => {
         }
 
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: isUpdate ? 'materia_prima_atualizada' : 'materia_prima_criada',
             entity_type: 'materia_prima',
             entity_id: sku,
@@ -156,8 +156,8 @@ materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'materia_prima_excluida',
             entity_type: 'materia_prima',
             entity_id: sku,
@@ -216,8 +216,8 @@ materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'entrada_materia_prima',
             entity_type: 'materia_prima',
             entity_id: sku_mp,
@@ -245,3 +245,4 @@ materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Erro ao registrar entrada de matéria-prima' });
     }
 });
+

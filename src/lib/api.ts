@@ -16,7 +16,7 @@ export async function apiRequest<T = any>(
 
     // Montar URL
     const url = getApiUrl(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`);
-    
+
     // Debug: mostrar URL completa
     console.log('🔗 API Request:', {
         endpoint,

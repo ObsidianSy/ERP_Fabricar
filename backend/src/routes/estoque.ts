@@ -133,8 +133,8 @@ estoqueRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'produto_criado',
             entity_type: 'produto',
             entity_id: sku,
@@ -254,8 +254,8 @@ estoqueRouter.delete('/:sku', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'produto_excluido',
             entity_type: 'produto',
             entity_id: sku,
@@ -411,8 +411,8 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'entrada_produto',
             entity_type: 'produto',
             entity_id: sku,
@@ -470,8 +470,8 @@ estoqueRouter.patch('/:sku/quantidade', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: req.body.user_email || 'sistema',
-            user_name: req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
             action: 'ajuste_quantidade_produto',
             entity_type: 'produto',
             entity_id: sku,
@@ -790,3 +790,4 @@ estoqueRouter.get('/movimentacoes/:sku', async (req: Request, res: Response) => 
         res.status(500).json({ error: 'Erro ao buscar movimentações' });
     }
 });
+

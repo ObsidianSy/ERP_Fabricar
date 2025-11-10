@@ -124,7 +124,7 @@ class OrdemProducaoService {
     /**
      * Criar nova OP
      */
-    async criarOP(op: Omit<OrdemProducao, 'id' | 'numero_op'>, userEmail?: string) {
+    async criarOP(op: Omit<OrdemProducao, 'id' | 'numero_op'>, userEmail?: string, userName?: string) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -186,6 +186,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_created',
                     entity_type: 'ordem_producao',
                     entity_id: opCriada.id.toString(),
@@ -206,7 +207,7 @@ class OrdemProducaoService {
     /**
      * Iniciar OP (baixa MP do estoque)
      */
-    async iniciarOP(id: number, userEmail?: string) {
+    async iniciarOP(id: number, userEmail?: string, userName?: string) {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -278,6 +279,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_started',
                     entity_type: 'ordem_producao',
                     entity_id: id.toString(),
@@ -298,7 +300,7 @@ class OrdemProducaoService {
     /**
      * Pausar OP
      */
-    async pausarOP(id: number, userEmail?: string) {
+    async pausarOP(id: number, userEmail?: string, userName?: string) {
         try {
             await pool.query(`
         UPDATE obsidian.ordens_producao
@@ -310,6 +312,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_paused',
                     entity_type: 'ordem_producao',
                     entity_id: id.toString()
@@ -326,7 +329,7 @@ class OrdemProducaoService {
     /**
      * Retomar OP
      */
-    async retomarOP(id: number, userEmail?: string) {
+    async retomarOP(id: number, userEmail?: string, userName?: string) {
         try {
             await pool.query(`
         UPDATE obsidian.ordens_producao
@@ -338,6 +341,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_resumed',
                     entity_type: 'ordem_producao',
                     entity_id: id.toString()
@@ -424,6 +428,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_cancelled',
                     entity_type: 'ordem_producao',
                     entity_id: id.toString(),
@@ -487,6 +492,7 @@ class OrdemProducaoService {
             if (userEmail) {
                 await logActivity({
                     user_email: userEmail,
+                    user_name: userName,
                     action: 'op_updated',
                     entity_type: 'ordem_producao',
                     entity_id: id.toString(),
@@ -504,3 +510,5 @@ class OrdemProducaoService {
 
 export const ordemProducaoService = new OrdemProducaoService();
 export default ordemProducaoService;
+
+

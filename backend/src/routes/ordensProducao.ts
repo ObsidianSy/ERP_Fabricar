@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { ordemProducaoService } from '../services/ordemProducaoService';
 import { apontamentoService } from '../services/apontamentoService';
+import { AuthRequest } from '../middleware/authMiddleware';
 
 export const ordensProducaoRouter = Router();
 
@@ -8,7 +9,7 @@ export const ordensProducaoRouter = Router();
  * GET /api/ordens-producao
  * Listar OPs com filtros opcionais
  */
-ordensProducaoRouter.get('/', async (req: Request, res: Response) => {
+ordensProducaoRouter.get('/', async (req: AuthRequest, res: Response) => {
     try {
         const { status, setor_id, data_inicio, data_fim } = req.query;
 
@@ -30,7 +31,7 @@ ordensProducaoRouter.get('/', async (req: Request, res: Response) => {
  * GET /api/ordens-producao/:id
  * Buscar OP por ID
  */
-ordensProducaoRouter.get('/:id', async (req: Request, res: Response) => {
+ordensProducaoRouter.get('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const op = await ordemProducaoService.buscarPorId(parseInt(id));
@@ -53,7 +54,7 @@ ordensProducaoRouter.get('/:id', async (req: Request, res: Response) => {
  * POST /api/ordens-producao
  * Criar nova OP
  */
-ordensProducaoRouter.post('/', async (req: Request, res: Response) => {
+ordensProducaoRouter.post('/', async (req: AuthRequest, res: Response) => {
     try {
         const { sku_produto, quantidade_planejada, prioridade, setor_id, observacoes, criado_por } = req.body;
 
@@ -70,7 +71,9 @@ ordensProducaoRouter.post('/', async (req: Request, res: Response) => {
             });
         }
 
-        const userEmail = (req as any).user?.email || 'sistema';
+        // Obter email e nome do usuário do token JWT
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.criarOP({
             sku_produto,
@@ -81,7 +84,7 @@ ordensProducaoRouter.post('/', async (req: Request, res: Response) => {
             setor_id: setor_id || null,
             observacoes: observacoes || null,
             criado_por: criado_por || null
-        }, userEmail);
+        }, userEmail, userName);
 
         res.status(201).json(op);
     } catch (error: any) {
@@ -94,7 +97,7 @@ ordensProducaoRouter.post('/', async (req: Request, res: Response) => {
  * POST /api/ordens-producao/:id/calcular-mp
  * Calcular necessidade de matéria-prima
  */
-ordensProducaoRouter.post('/:id/calcular-mp', async (req: Request, res: Response) => {
+ordensProducaoRouter.post('/:id/calcular-mp', async (req: AuthRequest, res: Response) => {
     try {
         const { sku_produto, quantidade } = req.body;
 
@@ -114,10 +117,11 @@ ordensProducaoRouter.post('/:id/calcular-mp', async (req: Request, res: Response
  * PATCH /api/ordens-producao/:id/iniciar
  * Iniciar OP (baixa MP do estoque)
  */
-ordensProducaoRouter.patch('/:id/iniciar', async (req: Request, res: Response) => {
+ordensProducaoRouter.patch('/:id/iniciar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.iniciarOP(parseInt(id), userEmail);
         res.json(op);
@@ -131,10 +135,11 @@ ordensProducaoRouter.patch('/:id/iniciar', async (req: Request, res: Response) =
  * PATCH /api/ordens-producao/:id/pausar
  * Pausar OP
  */
-ordensProducaoRouter.patch('/:id/pausar', async (req: Request, res: Response) => {
+ordensProducaoRouter.patch('/:id/pausar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.pausarOP(parseInt(id), userEmail);
         res.json(op);
@@ -148,10 +153,11 @@ ordensProducaoRouter.patch('/:id/pausar', async (req: Request, res: Response) =>
  * PATCH /api/ordens-producao/:id/retomar
  * Retomar OP pausada
  */
-ordensProducaoRouter.patch('/:id/retomar', async (req: Request, res: Response) => {
+ordensProducaoRouter.patch('/:id/retomar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.retomarOP(parseInt(id), userEmail);
         res.json(op);
@@ -165,11 +171,12 @@ ordensProducaoRouter.patch('/:id/retomar', async (req: Request, res: Response) =
  * PATCH /api/ordens-producao/:id/cancelar
  * Cancelar OP (estorna MP se já iniciada)
  */
-ordensProducaoRouter.patch('/:id/cancelar', async (req: Request, res: Response) => {
+ordensProducaoRouter.patch('/:id/cancelar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const { motivo } = req.body;
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.cancelarOP(parseInt(id), motivo, userEmail);
         res.json(op);
@@ -183,10 +190,11 @@ ordensProducaoRouter.patch('/:id/cancelar', async (req: Request, res: Response) 
  * PATCH /api/ordens-producao/:id
  * Atualizar OP (campos editáveis)
  */
-ordensProducaoRouter.patch('/:id', async (req: Request, res: Response) => {
+ordensProducaoRouter.patch('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const op = await ordemProducaoService.atualizarOP(parseInt(id), req.body, userEmail);
         res.json(op);
@@ -200,7 +208,7 @@ ordensProducaoRouter.patch('/:id', async (req: Request, res: Response) => {
  * GET /api/ordens-producao/:id/apontamentos
  * Listar apontamentos de uma OP
  */
-ordensProducaoRouter.get('/:id/apontamentos', async (req: Request, res: Response) => {
+ordensProducaoRouter.get('/:id/apontamentos', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const apontamentos = await apontamentoService.listarPorOP(parseInt(id));
@@ -215,7 +223,7 @@ ordensProducaoRouter.get('/:id/apontamentos', async (req: Request, res: Response
  * POST /api/ordens-producao/:id/apontamentos
  * Criar apontamento de produção
  */
-ordensProducaoRouter.post('/:id/apontamentos', async (req: Request, res: Response) => {
+ordensProducaoRouter.post('/:id/apontamentos', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
         const {
@@ -246,7 +254,8 @@ ordensProducaoRouter.post('/:id/apontamentos', async (req: Request, res: Respons
             });
         }
 
-        const userEmail = (req as any).user?.email || 'sistema';
+        const userEmail = req.user?.email || 'sistema';
+        const userName = req.user?.nome || 'Sistema';
 
         const apontamento = await apontamentoService.criarApontamento({
             op_id: parseInt(id),
@@ -269,7 +278,7 @@ ordensProducaoRouter.post('/:id/apontamentos', async (req: Request, res: Respons
  * GET /api/ordens-producao/estatisticas/producao
  * Estatísticas de produção por período
  */
-ordensProducaoRouter.get('/estatisticas/producao', async (req: Request, res: Response) => {
+ordensProducaoRouter.get('/estatisticas/producao', async (req: AuthRequest, res: Response) => {
     try {
         const { data_inicio, data_fim } = req.query;
 
@@ -290,3 +299,6 @@ ordensProducaoRouter.get('/estatisticas/producao', async (req: Request, res: Res
         res.status(500).json({ error: 'Erro ao buscar estatísticas de produção' });
     }
 });
+
+
+

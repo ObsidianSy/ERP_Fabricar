@@ -392,3 +392,4 @@ class ApontamentoService {
 
 export const apontamentoService = new ApontamentoService();
 export default apontamentoService;
+
