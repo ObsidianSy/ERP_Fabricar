@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
+import { logActivity } from '../services/activityLogger';
 
 export const materiaPrimaRouter = Router();
 
@@ -23,7 +24,7 @@ materiaPrimaRouter.get('/:sku', async (req: Request, res: Response) => {
     try {
         const { sku } = req.params;
         const result = await pool.query(
-            'SELECT * FROM obsidian.materia_prima WHERE sku = $1',
+            'SELECT * FROM obsidian.materia_prima WHERE sku_mp = $1',
             [sku]
         );
 
@@ -41,18 +42,33 @@ materiaPrimaRouter.get('/:sku', async (req: Request, res: Response) => {
 // POST - Criar nova matéria-prima
 materiaPrimaRouter.post('/', async (req: Request, res: Response) => {
     try {
-        const { id_materia_prima, sku_materia_prima, nome_materia_prima, categoria, quantidade_atual, unidade_medida, preco_unitario } = req.body;
+        const { sku_mp, nome, categoria, quantidade_atual, unidade_medida, custo_unitario } = req.body;
 
-        if (!id_materia_prima || !sku_materia_prima || !nome_materia_prima) {
-            return res.status(400).json({ error: 'Dados obrigatórios ausentes' });
+        if (!sku_mp || !nome) {
+            return res.status(400).json({ error: 'SKU e nome são obrigatórios' });
         }
 
         const result = await pool.query(
-            `INSERT INTO obsidian.materia_prima (id, sku, nome, categoria, quantidade_atual, unidade_medida, preco_unitario)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO obsidian.materia_prima (sku_mp, nome, categoria, quantidade_atual, unidade_medida, custo_unitario)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-            [id_materia_prima, sku_materia_prima, nome_materia_prima, categoria, quantidade_atual || 0, unidade_medida, preco_unitario || 0]
+            [sku_mp, nome, categoria, quantidade_atual || 0, unidade_medida || 'UN', custo_unitario || 0]
         );
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'materia_prima_criada',
+            entity_type: 'materia_prima',
+            entity_id: sku_mp,
+            details: {
+                nome,
+                categoria,
+                quantidade_inicial: quantidade_atual || 0,
+                custo_unitario: custo_unitario || 0
+            }
+        });
 
         res.status(201).json(result.rows[0]);
     } catch (error: any) {
@@ -68,21 +84,52 @@ materiaPrimaRouter.post('/', async (req: Request, res: Response) => {
 materiaPrimaRouter.put('/:sku', async (req: Request, res: Response) => {
     try {
         const { sku } = req.params;
-        const { id_materia_prima, nome_materia_prima, categoria, quantidade_atual, unidade_medida, preco_unitario } = req.body;
+        const { nome, categoria, quantidade_atual, unidade_medida, custo_unitario } = req.body;
+
+        // Buscar dados anteriores para comparação
+        const mpAnterior = await pool.query(
+            'SELECT * FROM obsidian.materia_prima WHERE sku_mp = $1',
+            [sku]
+        );
+
+        const isUpdate = mpAnterior.rows.length > 0;
 
         const result = await pool.query(
-            `INSERT INTO obsidian.materia_prima (id, sku, nome, categoria, quantidade_atual, unidade_medida, preco_unitario)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       ON CONFLICT (sku) 
+            `INSERT INTO obsidian.materia_prima (sku_mp, nome, categoria, quantidade_atual, unidade_medida, custo_unitario)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (sku_mp) 
        DO UPDATE SET 
          nome = EXCLUDED.nome,
          categoria = EXCLUDED.categoria,
          quantidade_atual = EXCLUDED.quantidade_atual,
          unidade_medida = EXCLUDED.unidade_medida,
-         preco_unitario = EXCLUDED.preco_unitario
+         custo_unitario = EXCLUDED.custo_unitario,
+         atualizado_em = now()
        RETURNING *`,
-            [id_materia_prima, sku, nome_materia_prima, categoria, quantidade_atual, unidade_medida, preco_unitario]
+            [sku, nome, categoria, quantidade_atual, unidade_medida, custo_unitario]
         );
+
+        // Registrar log de atividade
+        const logDetails: any = {
+            nome,
+            categoria,
+            quantidade_atual,
+            custo_unitario
+        };
+
+        if (isUpdate) {
+            logDetails.quantidade_anterior = mpAnterior.rows[0].quantidade_atual;
+            logDetails.diferenca_quantidade = parseFloat(quantidade_atual) - parseFloat(mpAnterior.rows[0].quantidade_atual);
+        }
+
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: isUpdate ? 'materia_prima_atualizada' : 'materia_prima_criada',
+            entity_type: 'materia_prima',
+            entity_id: sku,
+            details: logDetails
+        });
 
         res.json(result.rows[0]);
     } catch (error) {
@@ -97,7 +144,7 @@ materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
         const { sku } = req.params;
 
         const result = await pool.query(
-            'DELETE FROM obsidian.materia_prima WHERE sku = $1 RETURNING *',
+            'DELETE FROM obsidian.materia_prima WHERE sku_mp = $1 RETURNING *',
             [sku]
         );
 
@@ -105,9 +152,96 @@ materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Matéria-prima não encontrada' });
         }
 
+        const mpExcluida = result.rows[0];
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'materia_prima_excluida',
+            entity_type: 'materia_prima',
+            entity_id: sku,
+            details: {
+                nome: mpExcluida.nome,
+                categoria: mpExcluida.categoria,
+                quantidade_final: mpExcluida.quantidade_atual,
+                custo_unitario: mpExcluida.custo_unitario
+            }
+        });
+
         res.json({ message: 'Matéria-prima excluída com sucesso' });
     } catch (error) {
         console.error('Erro ao excluir matéria-prima:', error);
         res.status(500).json({ error: 'Erro ao excluir matéria-prima' });
+    }
+});
+
+// POST - Registrar entrada de matéria-prima no estoque
+materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
+    try {
+        const { sku_mp, quantidade, observacao } = req.body;
+
+        if (!sku_mp || !quantidade) {
+            return res.status(400).json({ error: 'SKU e quantidade são obrigatórios' });
+        }
+
+        if (quantidade <= 0) {
+            return res.status(400).json({ error: 'Quantidade deve ser maior que zero' });
+        }
+
+        // Verificar se matéria-prima existe e buscar dados anteriores
+        const mpCheck = await pool.query(
+            'SELECT sku_mp, nome, quantidade_atual FROM obsidian.materia_prima WHERE sku_mp = $1',
+            [sku_mp]
+        );
+
+        if (mpCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Matéria-prima não encontrada' });
+        }
+
+        const mp = mpCheck.rows[0];
+        const saldoAnterior = parseFloat(mp.quantidade_atual);
+
+        // Atualizar quantidade atual da matéria-prima
+        const updateResult = await pool.query(
+            `UPDATE obsidian.materia_prima 
+             SET quantidade_atual = quantidade_atual + $1,
+                 atualizado_em = NOW()
+             WHERE sku_mp = $2
+             RETURNING quantidade_atual`,
+            [quantidade, sku_mp]
+        );
+
+        const saldoAtual = parseFloat(updateResult.rows[0].quantidade_atual);
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'entrada_materia_prima',
+            entity_type: 'materia_prima',
+            entity_id: sku_mp,
+            details: {
+                nome: mp.nome,
+                quantidade_entrada: parseFloat(quantidade),
+                saldo_anterior: saldoAnterior,
+                saldo_atual: saldoAtual,
+                observacao
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Entrada registrada com sucesso',
+            sku_mp,
+            nome: mp.nome,
+            quantidade_adicionada: parseFloat(quantidade),
+            saldo_anterior: saldoAnterior,
+            saldo_atual: saldoAtual
+        });
+
+    } catch (error) {
+        console.error('Erro ao registrar entrada de matéria-prima:', error);
+        res.status(500).json({ error: 'Erro ao registrar entrada de matéria-prima' });
     }
 });

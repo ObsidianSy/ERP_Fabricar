@@ -2,6 +2,7 @@ import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   Pagination,
   PaginationContent,
@@ -198,25 +199,28 @@ const ProductsDataTableComponent = ({
                   const unidade = produto.unidade_medida || produto["Unidade de Medida"] || "";
                   const preco = Number(produto.preco_unitario || produto["Preço Unitário"]) || 0;
                   const valorTotal = calculateTotalValue(quantidade, preco);
-                  const foto_url = produto.foto_url;
+
+                  // Extrair produto_base do SKU (remove o último segmento após o último hífen)
+                  // Ex: TES-T-P → TES-T, ARROZ-1KG → ARROZ
+                  const produtoBase = sku.includes('-') && sku.split('-').length > 2
+                    ? sku.split('-').slice(0, -1).join('-').toUpperCase()
+                    : sku.toUpperCase();
+
+                  console.log(`SKU: ${sku} → Produto Base: ${produtoBase}`);
 
                   return (
                     <TableRow key={sku || index} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewDetails?.(produto)}>
                       {/* Coluna de Foto */}
                       <TableCell>
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted">
-                          {foto_url ? (
-                            <img
-                              src={`${API_BASE_URL}${foto_url}`}
-                              alt={sku}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold">
-                              {sku.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage
+                            src={`${API_BASE_URL}/api/produto-fotos/${produtoBase}/thumbnail`}
+                            alt={nome}
+                          />
+                          <AvatarFallback className="text-xs bg-muted">
+                            {nome.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                       </TableCell>
                       <TableCell className="font-mono text-sm">{sku}</TableCell>
                       <TableCell className="font-medium">{nome}</TableCell>

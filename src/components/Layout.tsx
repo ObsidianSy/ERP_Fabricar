@@ -18,26 +18,31 @@ const Layout = ({ children }: LayoutProps) => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        
+
         <SidebarInset className="flex-1">
           {/* Header with breadcrumbs and actions */}
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 border-b">
             <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
+              <SidebarTrigger className="-ml-1 hover:bg-accent rounded-md transition-colors" />
               <Separator orientation="vertical" className="mr-2 h-4" />
               <AppBreadcrumb />
             </div>
-            
+
             {/* Actions */}
             <div className="flex items-center gap-2 ml-auto px-4">
               <DateFilterSelector />
-              <Button onClick={() => navigate("/vendas")} variant="default" size="sm" className="hidden sm:flex">
-                <ShoppingCart className="h-3 w-3 mr-1" /> 
+              <Button
+                onClick={() => navigate("/vendas")}
+                variant="default"
+                size="sm"
+                className="hidden sm:flex hover:scale-105 transition-transform"
+              >
+                <ShoppingCart className="h-3 w-3 mr-1" />
                 <span className="text-xs">Nova Venda</span>
               </Button>
             </div>
           </header>
-          
+
           {/* Main content */}
           <main className="flex-1 overflow-y-auto p-4 pt-0">
             <div className="animate-slide-up space-y-4">

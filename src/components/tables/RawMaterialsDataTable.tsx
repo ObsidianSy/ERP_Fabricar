@@ -2,13 +2,15 @@ import { useState, useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Pagination, 
-  PaginationContent, 
-  PaginationItem, 
-  PaginationLink, 
-  PaginationNext, 
-  PaginationPrevious 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { API_BASE_URL } from "@/config/api";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious
 } from "@/components/ui/pagination";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
@@ -42,6 +44,14 @@ import { toast } from "sonner";
 import { sortBySKU } from "@/utils/sortUtils";
 
 interface MateriaPrima {
+  id?: number;
+  sku_mp?: string;
+  nome?: string;
+  categoria?: string;
+  quantidade_atual?: number;
+  unidade_medida?: string;
+  custo_unitario?: number;
+  // Campos legados (para compatibilidade)
   sku_materia_prima?: string;
   nome_materia_prima?: string;
   categoria_mp?: string;
@@ -77,9 +87,9 @@ const RawMaterialsDataTableComponent = ({
 
   const filteredItems = useMemo(() => {
     const filtered = materiasPrimas.filter((item) => {
-      const sku = item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
-      const nome = item.nome_materia_prima || item["Nome Matéria-Prima"] || "";
-      const categoria = item.categoria_mp || item["Categoria MP"] || "";
+      const sku = item.sku_mp || item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
+      const nome = item.nome || item.nome_materia_prima || item["Nome Matéria-Prima"] || "";
+      const categoria = item.categoria || item.categoria_mp || item["Categoria MP"] || "";
       const search = debouncedSearch.toLowerCase();
 
       return (
@@ -88,10 +98,10 @@ const RawMaterialsDataTableComponent = ({
         categoria.toLowerCase().includes(search)
       );
     });
-    
+
     // Ordenar por SKU usando natural sort
-    return sortBySKU(filtered, (item) => 
-      item.sku_materia_prima || item["SKU Matéria-Prima"] || ""
+    return sortBySKU(filtered, (item) =>
+      item.sku_mp || item.sku_materia_prima || item["SKU Matéria-Prima"] || ""
     );
   }, [materiasPrimas, debouncedSearch]);
 
@@ -105,9 +115,9 @@ const RawMaterialsDataTableComponent = ({
   const handleDelete = async (item: MateriaPrima) => {
     setIsDeleting(true);
     try {
-      const sku = item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
+      const sku = item.sku_mp || item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
       const success = await excluirMateriaPrima(sku);
-      
+
       if (success) {
         toast.success("Matéria-prima excluída com sucesso!");
         onRefresh();
@@ -157,6 +167,7 @@ const RawMaterialsDataTableComponent = ({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">Foto</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Nome Matéria-Prima</TableHead>
                 <TableHead>Categoria</TableHead>
@@ -170,7 +181,7 @@ const RawMaterialsDataTableComponent = ({
             <TableBody>
               {filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-32 text-center">
+                  <TableCell colSpan={9} className="h-32 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Package className="h-8 w-8 text-muted-foreground" />
                       <p className="text-muted-foreground">
@@ -183,16 +194,27 @@ const RawMaterialsDataTableComponent = ({
                 </TableRow>
               ) : (
                 paginatedItems.map((item, index) => {
-                  const sku = item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
-                  const nome = item.nome_materia_prima || item["Nome Matéria-Prima"] || "";
-                  const categoria = item.categoria_mp || item["Categoria MP"] || "";
-                  const quantidade = item.quantidade_mp || item["Quantidade Atual"] || 0;
-                  const unidade = item.unidade_mp || item["Unidade de Medida"] || "";
-                  const custo = item.custo_unitario_mp || item["Custo Unitário"] || 0;
+                  const sku = item.sku_mp || item.sku_materia_prima || item["SKU Matéria-Prima"] || "";
+                  const nome = item.nome || item.nome_materia_prima || item["Nome Matéria-Prima"] || "";
+                  const categoria = item.categoria || item.categoria_mp || item["Categoria MP"] || "";
+                  const quantidade = item.quantidade_atual ?? item.quantidade_mp ?? item["Quantidade Atual"] ?? 0;
+                  const unidade = item.unidade_medida || item.unidade_mp || item["Unidade de Medida"] || "";
+                  const custo = item.custo_unitario ?? item.custo_unitario_mp ?? item["Custo Unitário"] ?? 0;
                   const valorTotal = calculateTotalValue(quantidade, custo);
 
                   return (
                     <TableRow key={sku || index}>
+                      <TableCell>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage
+                            src={`${API_BASE_URL}/api/materia-prima-fotos/${sku}/thumbnail`}
+                            alt={nome}
+                          />
+                          <AvatarFallback className="text-xs bg-muted">
+                            {nome.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
                       <TableCell className="font-mono text-sm">{sku}</TableCell>
                       <TableCell className="font-medium">{nome}</TableCell>
                       <TableCell>
@@ -252,7 +274,7 @@ const RawMaterialsDataTableComponent = ({
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious 
+                  <PaginationPrevious
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
@@ -281,7 +303,7 @@ const RawMaterialsDataTableComponent = ({
                   );
                 })}
                 <PaginationItem>
-                  <PaginationNext 
+                  <PaginationNext
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                   />
@@ -302,7 +324,7 @@ const RawMaterialsDataTableComponent = ({
             <AlertDialogDescription>
               Tem certeza que deseja excluir a matéria-prima{" "}
               <strong>
-                {deleteItem?.nome_materia_prima || deleteItem?.["Nome Matéria-Prima"]}
+                {deleteItem?.nome || deleteItem?.nome_materia_prima || deleteItem?.["Nome Matéria-Prima"]}
               </strong>
               ? Esta ação não pode ser desfeita.
             </AlertDialogDescription>

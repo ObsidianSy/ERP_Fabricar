@@ -25,7 +25,7 @@ import ImportPlanilhaFull from "./pages/ImportPlanilhaFull";
 import FullEnvios from "./pages/FullEnvios";
 import ActivityLogs from "./pages/ActivityLogs";
 import Devolucoes from "./pages/Devolucoes";
-import FotosProdutos from "./pages/FotosProdutos";
+import GerenciarFotos from "./pages/GerenciarFotos";
 import UserManagement from "./pages/UserManagement";
 import Login from "./pages/Login";
 
@@ -84,7 +84,7 @@ const App = () => (
                   <Route path="/import-planilha-full" element={<PrivateRoute><ImportPlanilhaFull /></PrivateRoute>} />
                   <Route path="/full-envios" element={<PrivateRoute><FullEnvios /></PrivateRoute>} />
                   <Route path="/activity-logs" element={<PrivateRoute><ActivityLogs /></PrivateRoute>} />
-                  <Route path="/fotos-produtos" element={<PrivateRoute><FotosProdutos /></PrivateRoute>} />
+                  <Route path="/fotos-produtos" element={<PrivateRoute><GerenciarFotos /></PrivateRoute>} />
                   <Route path="/usuarios" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
 
                   {/* Rota 404 */}

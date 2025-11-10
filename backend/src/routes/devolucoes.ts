@@ -23,7 +23,6 @@ devolucoesRouter.get('/pendentes', async (req: Request, res: Response) => {
                 d.observacoes,
                 d.codigo_rastreio,
                 d.created_at,
-                pf.foto_url,
                 v.venda_id as venda_id,
                 v.data_venda,
                 v.nome_cliente,
@@ -31,8 +30,7 @@ devolucoesRouter.get('/pendentes', async (req: Request, res: Response) => {
                 v.quantidade_vendida as quantidade_vendida,
                 v.canal,
                 v.valor_total
-            FROM public.devolucoes d
-            LEFT JOIN obsidian.produto_fotos pf ON obsidian.extrair_produto_base(d.sku_produto) = pf.produto_base
+            FROM obsidian.devolucoes d
             LEFT JOIN obsidian.vendas v ON v.pedido_uid = d.pedido_uid AND v.sku_produto = d.sku_produto
             WHERE d.conferido_em IS NULL  -- Ainda não conferida
         `;

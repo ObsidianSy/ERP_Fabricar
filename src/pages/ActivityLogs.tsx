@@ -89,6 +89,19 @@ const actionLabels: Record<string, string> = {
     relate_item: "Relacionar Item",
     relate_manual: "Relacionamento Manual",
     auto_relate: "Relacionamento Automático",
+    // Logs de estoque
+    produto_criado: "Produto Criado",
+    produto_excluido: "Produto Excluído",
+    entrada_produto: "Entrada de Produto",
+    ajuste_quantidade_produto: "Ajuste de Quantidade",
+    // Logs de matéria-prima
+    materia_prima_criada: "Matéria-Prima Criada",
+    materia_prima_atualizada: "Matéria-Prima Atualizada",
+    materia_prima_excluida: "Matéria-Prima Excluída",
+    entrada_materia_prima: "Entrada de Matéria-Prima",
+    // Logs de receitas
+    receita_produto_criada_atualizada: "Receita Criada/Atualizada",
+    receita_produto_excluida: "Receita Excluída",
 }
 
 const actionColors: Record<string, string> = {
@@ -99,6 +112,19 @@ const actionColors: Record<string, string> = {
     relate_item: "bg-orange-500",
     relate_manual: "bg-orange-600",
     auto_relate: "bg-cyan-500",
+    // Cores para logs de estoque
+    produto_criado: "bg-green-600",
+    produto_excluido: "bg-red-600",
+    entrada_produto: "bg-blue-600",
+    ajuste_quantidade_produto: "bg-yellow-600",
+    // Cores para logs de matéria-prima
+    materia_prima_criada: "bg-emerald-600",
+    materia_prima_atualizada: "bg-teal-600",
+    materia_prima_excluida: "bg-red-700",
+    entrada_materia_prima: "bg-blue-700",
+    // Cores para logs de receitas
+    receita_produto_criada_atualizada: "bg-indigo-600",
+    receita_produto_excluida: "bg-red-800",
 }
 
 // Função para formatar detalhes de forma legível

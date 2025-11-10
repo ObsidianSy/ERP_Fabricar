@@ -15,6 +15,7 @@ import { activityRouter } from './routes/activity';
 import { devolucoesRouter } from './routes/devolucoes';
 import authRouter from './routes/auth';
 import produtoFotosRouter from './routes/produto-fotos';
+import materiaPrimaFotosRouter from './routes/materia-prima-fotos';
 import usuariosRouter from './routes/usuarios';
 import { startCleanupTask } from './tasks/cleanupActivityLogs';
 
@@ -89,6 +90,7 @@ app.use('/api/envios', enviosRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/devolucoes', devolucoesRouter);
 app.use('/api/produto-fotos', produtoFotosRouter);
+app.use('/api/materia-prima-fotos', materiaPrimaFotosRouter);
 
 // Serve arquivos estáticos de upload com CORS
 const uploadsPath = path.join(__dirname, '..', 'uploads');

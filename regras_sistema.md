@@ -1,195 +1,255 @@
-🧠 REGRAS DE NEGÓCIO — OPUS ONE (Versão para Claude Sonnet 4.5)
+🧠 REGRAS DE NEGÓCIO — ERP FÁBRICA (Versão para Claude Sonnet 4.5)
 🔸 1. Contexto Geral
 
 O sistema NÃO é multi-tenant.
 
 Existe apenas um ambiente e um estoque consolidado.
 
-Existem clientes internos (nossas próprias empresas) com controle financeiro independente, mas todos compartilham o mesmo estoque.
+Existem setores/linhas de produção (tratados como "clientes internos") com controle financeiro independente, mas todos compartilham o mesmo estoque.
 
-Marketplaces (Shopee, Mercado Livre, etc.) são apenas canais de origem da venda, nunca clientes.
+O estoque é dividido em três tipos:
+- **Matéria-Prima (MP)**: insumos que entram na produção
+- **Em Processo (WIP)**: produtos sendo fabricados
+- **Produtos Acabados (PA)**: prontos para venda/expedição
 
-Fulfillment externo (como Mercado Fulfillment) é um tipo especial de venda que não interfere no estoque nem no financeiro.
+As Ordens de Produção (OP) são o equivalente a "vendas" do sistema anterior - elas consomem matéria-prima e geram produtos acabados.
 
-🔹 2. Tipos de Venda
-Tipo de Venda	Baixa Estoque	Gera Financeiro	Observação
-Venda Normal (não-full)	✅ Sim	✅ Sim	Usa o custo do produto em estoque
-Venda Fulfillment (Full)	❌ Não	❌ Não	Já foi contabilizada na expedição; apenas controle informativo
-Venda Cancelada	❌ Não	❌ Não	Caso já exista, deve ser removida ao atualizar status para “cancelado”
-🔹 3. Importação da UpSeller
+Produção terceirizada (outsourcing) é um tipo especial de OP que não consome estoque interno (similar ao fulfillment externo).
 
-Cada cliente interno envia 1 arquivo XLSX diário.
+🔹 2. Tipos de Ordem de Produção (OP)
+Tipo de OP	Baixa Estoque MP	Adiciona Estoque PA	Observação
+OP Normal (interna)	✅ Sim	✅ Sim	Consome MP do estoque e adiciona PA ao estoque
+OP Terceirizada (outsourcing)	❌ Não	✅ Sim	Produção externa, só adiciona PA quando receber
+OP Cancelada	❌ Não	❌ Não	Se já iniciada, deve estornar MP consumida
+🔹 3. Fluxo de Ordem de Produção
 
-O arquivo é armazenado imutável para auditoria.
+Cada OP tem um ciclo de vida:
 
-Cada linha é registrada com:
+1. **Criação da OP**
+   - Define: produto a fabricar, quantidade, prioridade, setor responsável
+   - Status inicial: `aguardando`
+   - Calcula necessidade de matéria-prima baseado na receita do produto
 
-Identificador do pedido
+2. **Verificação de Estoque**
+   - Sistema verifica se há MP suficiente
+   - Se sim → status `pronto_para_iniciar`
+   - Se não → status `aguardando_mp` (bloqueia início)
 
-SKU
+3. **Início da Produção**
+   - Operador clica "Iniciar OP"
+   - Status → `em_producao`
+   - **BAIXA AUTOMÁTICA de matéria-prima** do estoque
+   - Registra timestamp de início
 
-Quantidade
+4. **Apontamento de Produção**
+   - Operador registra quantas peças foram produzidas
+   - Sistema **ADICIONA produtos acabados ao estoque**
+   - Se houver refugo → registra quantidade e motivo
+   - Atualiza progresso da OP
 
-Canal (marketplace)
+5. **Conclusão da OP**
+   - Quando quantidade produzida >= quantidade planejada
+   - Status → `concluida`
+   - Registra timestamp de conclusão
+   - Calcula KPIs (eficiência, tempo, refugo)
 
-Status (normal, fulfillment, cancelado)
-
-O sistema deduplica automaticamente:
-
-Reimportar a mesma linha não cria duplicata (idempotência).
-
-Chave de dedupe:
-pedido + sku + quantidade + cliente_interno + data.
-
-Linhas com quantidade ≤ 0 são ignoradas.
-
-Pedidos cancelados:
-
-Não geram vendas novas.
-
-Se já existirem vendas registradas, são removidas automaticamente.
-
-Dados da planilha que são ignorados:
-
-Nome do Cliente da planilha → IGNORADO (usamos o cliente interno).
-
-Valor Vendido da planilha → IGNORADO (usamos custo do produto no estoque).
+6. **Cancelamento de OP**
+   - Pode ser cancelada em qualquer status
+   - Se já iniciada → **ESTORNA matéria-prima** consumida de volta ao estoque
+   - Status → `cancelada`
 
 🔹 4. Estoque
 
-Estoque é único e compartilhado.
+Estoque é único e compartilhado entre todos os setores.
 
 Pode ficar negativo (sem bloqueio).
 
 Cada produto tem:
-sku, nome, categoria, tipo_produto, quantidade_atual, preco_unitario, ativo.
+sku, nome, categoria, tipo_produto, tipo_estoque, quantidade_atual, preco_unitario, ativo.
+
+**Tipos de Estoque:**
+- `materia_prima`: insumos para produção
+- `em_processo`: produtos sendo fabricados (WIP)
+- `acabado`: produtos finalizados
 
 Baixa de estoque:
 
-Só ocorre em vendas normais (não-full).
+Ocorre quando OP é iniciada (consome MP).
 
-Fulfillment externo NÃO reduz estoque.
+Produção terceirizada NÃO reduz estoque interno.
 
-Kits são explodidos em componentes para baixa.
+Produtos com receita (BOM) têm seus componentes baixados automaticamente.
 
 Valor considerado:
 
-Sempre o custo do produto no estoque.
+Sempre o custo do produto/MP no estoque.
 
-Nunca o preço de venda vindo da UpSeller.
+Produtos com Receita (BOM - Bill of Materials):
 
-Kits:
+Campo `receita_produto` contém lista de componentes: [{sku_mp, quantidade_por_produto}]
 
-is_kit = true
+Ao iniciar OP, sistema calcula total de MP necessária.
 
-Contém lista componentes [{sku, qty}]
+Baixa automática de cada componente da receita.
 
-Valor do kit = soma dos custos dos componentes
+Valor do produto acabado = soma dos custos das MPs + mão de obra (se configurado).
 
-Baixa individual dos componentes ao vender.
+**Movimentações de Estoque:**
 
-🔹 5. Financeiro
+Todas registradas em `estoque_movimentos`:
+- `entrada_mp`: entrada de matéria-prima (compra)
+- `consumo_mp`: consumo na produção (OP)
+- `producao`: produto acabado gerado
+- `ajuste`: ajuste manual de inventário
+- `refugo`: perda/descarte de material
+- `transferencia`: entre setores
 
-Cada venda normal (não-full) gera saldo devedor para o cliente interno.
+🔹 5. Financeiro e Custos
 
-O valor da dívida é calculado pelo custo do produto no estoque, não pelo preço de venda.
+Cada OP gera custo para o setor responsável.
 
-Vendas fulfillment e canceladas não afetam o financeiro.
+O valor do custo é calculado pela soma:
+- Custo das matérias-primas consumidas (baseado no estoque)
+- Custo de mão de obra (se configurado por produto)
+- Custos indiretos (overhead, se aplicável)
 
-Pagamentos:
+OPs terceirizadas e canceladas não afetam o custo interno.
 
-São registrados apenas quando o cliente interno efetua quitação.
+Lançamentos Financeiros:
 
-Não são gerados automaticamente ao importar vendas.
-(Ou seja: importação gera dívida, não pagamento.)
+São registrados quando há consumo real de MP.
+
+Não são gerados automaticamente na criação da OP, apenas no início.
 
 Chave de idempotência:
-md5(data_pagamento | nome_cliente | valor_pago | forma_pagamento)
+md5(data_consumo | setor_id | sku_mp | quantidade | op_id)
 
 Evita duplicidade automática.
 
-Caso o cliente pague mais do que devia → gera crédito automático.
+Custos de Produção:
 
-Crédito é abatido nas próximas vendas do mesmo cliente interno.
+Calculados automaticamente ao iniciar OP.
 
-🔹 6. Regras de Aprendizado de SKU
+Baseados no custo atual das MPs no estoque.
 
-Ao importar, o sistema tenta associar automaticamente cada SKU:
+Podem ser ajustados manualmente se necessário.
 
-Match direto → SKU idêntico existente.
+🔹 6. Receitas de Produto (BOM - Bill of Materials)
 
-Match por alias → SKU reconhecido de aprendizado anterior.
+A tabela `receita_produto` define quais matérias-primas são necessárias para cada produto.
 
-Manual → usuário relaciona manualmente (gera novo alias).
+Cada registro contém:
+- `sku_produto`: produto final
+- `sku_mp`: matéria-prima necessária
+- `quantidade_por_produto`: quanto de MP é usado por unidade do produto
 
-Kit-found / kit-autocreate → reconhecido por composição.
+Ao criar uma OP, o sistema:
 
-Quando o usuário resolve um SKU manualmente, o sistema:
+Busca a receita do produto na tabela `receita_produto`.
 
-Registra o alias.
+Calcula total de MP necessária = quantidade_planejada × quantidade_por_produto.
 
-Aprenderá automaticamente na próxima importação.
+Verifica disponibilidade em estoque.
 
-SKUs não reconhecidos entram na fila de pendências até o usuário relacionar.
+Quando OP é iniciada:
+
+Sistema baixa automaticamente todas as MPs da receita.
+
+Registra cada consumo em `estoque_movimentos`.
+
+Atualiza `quantidade_atual` de cada MP.
+
+Produtos sem receita cadastrada:
+
+Não podem ter OPs criadas (validação obrigatória).
+
+Sistema alerta usuário para cadastrar receita primeiro.
 
 🔹 7. Auditoria e Idempotência
 
-Todo arquivo importado é guardado como veio (imutável).
+Toda OP criada é registrada de forma imutável.
 
-Cada linha processada tem:
+Cada movimentação de estoque tem:
 
 Data/hora de processamento
 
-Origem (cliente interno, canal, arquivo)
+Origem (OP, ajuste, entrada, etc)
+
+Responsável (usuário que executou)
 
 Hash de idempotência.
 
-Reimportar o mesmo arquivo:
+Reiniciar uma OP:
 
-Não duplica nada.
+Não duplica consumo de MP.
 
-Atualiza vendas canceladas.
+Usa mesmos registros de `consumo_mp_op`.
 
 Todas ações são registradas em activity_logs:
 
 user_email, action, entity_type, entity_id, details, ip_address, user_agent, created_at
 
+Exemplos de ações auditadas:
+- `op_created`: OP criada
+- `op_started`: OP iniciada (consumiu MP)
+- `op_paused`: OP pausada
+- `op_resumed`: OP retomada
+- `op_completed`: OP concluída
+- `op_cancelled`: OP cancelada
+- `apontamento_created`: Produção registrada
+- `refugo_registered`: Refugo registrado
+
 🔹 8. Hierarquia de Processamento (ordem correta)
 
-Importar arquivo UpSeller.
+1. Criar Ordem de Produção (OP).
 
-Deduplicar (descarta linhas repetidas ou sem quantidade).
+2. Validar receita do produto (BOM deve existir).
 
-Verificar status:
+3. Calcular necessidade de matéria-prima.
 
-Se cancelado → excluir venda existente.
+4. Verificar disponibilidade em estoque:
+   - Se OK → status `pronto_para_iniciar`
+   - Se NOK → status `aguardando_mp`
 
-Se fulfillment → registrar apenas para controle (sem estoque, sem financeiro).
+5. Iniciar OP (ação manual do operador):
+   - Baixar matéria-prima do estoque
+   - Registrar consumo em `estoque_movimentos`
+   - Status → `em_producao`
 
-Se normal → registrar venda, gerar saldo devedor, baixar estoque.
+6. Apontar produção (pode ser múltiplas vezes):
+   - Adicionar produtos acabados ao estoque
+   - Registrar refugo (se houver)
+   - Atualizar progresso da OP
 
-Atualizar aliases de SKU se houver manual match.
+7. Concluir OP:
+   - Validar se quantidade produzida >= planejada
+   - Status → `concluida`
+   - Calcular KPIs (eficiência, tempo, refugo)
 
-Gerar logs e relatórios.
+8. Gerar logs e relatórios.
 
 🔹 9. Regra de Ouro (⚠️ para IA e dev)
 
-NUNCA contabilizar venda fulfillment como baixa de estoque ou soma no financeiro.
-NUNCA usar nome de cliente ou valor de venda da planilha UpSeller.
-Sempre usar custo do produto no estoque e cliente interno como base de cálculo.
+NUNCA contabilizar OP terceirizada como baixa de estoque interno.
+NUNCA iniciar OP sem validar disponibilidade de matéria-prima.
+Sempre usar custo das MPs no estoque como base de cálculo de custo de produção.
 
-Se o status mudar para cancelado, a venda deve ser removida integralmente.
+Se a OP for cancelada após iniciada, DEVE estornar a matéria-prima consumida de volta ao estoque.
 
+Ao apontar produção, SEMPRE adicionar produto acabado ao estoque (exceto em refugo total).
 
-E tambem sempre que vc criar algo que use alguma funcionalidade do banco de dados como tabelas principalmente, consulta la pra voce ver como esta o nome pra nao colocar nomes errados nem campos errados colocar exatamente igual ta no BD. Resumo sempre roda o script backend/check-ml-tables-quick.js. Pra voce ver as tables.
-
-mais uma coisa caso vc tenha alguma duvida nao faca nada, pergunte antes, mas isso somente se vc realmente tiver alguma duvida, se nao pode seguir.
-
-
-Sempre que voce for fazer alguma coisa no codigo ou criar algo, voce nunca deve mexer em outras coisas apenas no que foi pedido, pra evitar de quebrar o codigo, mts vezes vc faz algo e outra para de funcionar, as vezes com nome de tabelas esass coisas, entao vamos evitar.
+Refugos devem ser registrados separadamente e NÃO entram no estoque de produtos acabados.
 
 
-Nova regra, sempre olha o arquivo tabela-sql.md. La vc vai ter uma noçao de todo slq do banco.
+E também sempre que vc criar algo que use alguma funcionalidade do banco de dados como tabelas principalmente, consulta lá pra você ver como está o nome pra não colocar nomes errados nem campos errados colocar exatamente igual tá no BD. Resumo sempre roda o script backend/check-ml-tables-quick.js. Pra você ver as tables.
+
+Mais uma coisa caso vc tenha alguma dúvida não faça nada, pergunte antes, mas isso somente se vc realmente tiver alguma dúvida, se não pode seguir.
 
 
-Se possivel nao ficar criando scripts, voce ja pode rodar direto eles, ta enchendo o projeto de arquivo atoa, anao ser q seja algo q va ficar la pra ser rodado direto!
+Sempre que você for fazer alguma coisa no código ou criar algo, você nunca deve mexer em outras coisas apenas no que foi pedido, pra evitar de quebrar o código, muitas vezes vc faz algo e outra para de funcionar, as vezes com nome de tabelas essas coisas, então vamos evitar.
+
+
+Nova regra, sempre olha o arquivo tabela-sql.md. Lá vc vai ter uma noção de todo SQL do banco.
+
+
+Se possível não ficar criando scripts, você já pode rodar direto eles, tá enchendo o projeto de arquivo à toa, a não ser que seja algo que vá ficar lá pra ser rodado direto!

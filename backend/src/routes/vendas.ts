@@ -9,11 +9,8 @@ vendasRouter.get('/', async (req: Request, res: Response) => {
         const { sku_produto } = req.query;
 
         let query = `
-            SELECT 
-                v.*,
-                pf.foto_url
+            SELECT v.*
             FROM obsidian.vendas v
-            LEFT JOIN obsidian.produto_fotos pf ON obsidian.extrair_produto_base(v.sku_produto) = pf.produto_base
         `;
         let params: any[] = [];
 

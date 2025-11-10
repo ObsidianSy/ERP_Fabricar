@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import MateriaPrimaForm from "@/components/forms/MateriaPrimaForm";
 import EntradaProdutoForm from "@/components/forms/EntradaProdutoForm";
 import EntradaMateriaPrimaForm from "@/components/forms/EntradaMateriaPrimaForm";
+import { API_BASE_URL } from "@/config/api";
 
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -44,13 +45,20 @@ interface ProdutoAcabado {
 }
 
 interface MateriaPrima {
+  id?: number;
+  sku_mp?: string;
+  nome?: string;
+  categoria?: string;
+  quantidade_atual?: number;
+  unidade_medida?: string;
+  custo_unitario?: number;
+  // Campos legados (para compatibilidade)
   sku_materia_prima?: string;
   nome_materia_prima?: string;
   categoria_mp?: string;
   quantidade_mp?: number;
   unidade_mp?: string;
   custo_unitario_mp?: number;
-  // Campos da API
   "SKU Matéria-Prima"?: string;
   "Nome Matéria-Prima"?: string;
   "Categoria MP"?: string;
@@ -61,6 +69,7 @@ interface MateriaPrima {
 
 const Estoque = () => {
   const [activeTab, setActiveTab] = useState("estoque");
+  const [viewMode, setViewMode] = useState<"produtos" | "materias-primas">("produtos");
   const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrima[]>([]);
   const [editingProduct, setEditingProduct] = useState<ProdutoAcabado | null>(null);
   const [editingMateriaPrima, setEditingMateriaPrima] = useState<MateriaPrima | null>(null);
@@ -96,7 +105,13 @@ const Estoque = () => {
   // Memoize matérias-primas loading
   const carregarMateriaPrima = useCallback(async () => {
     try {
-      const dadosMateriaPrima = await consultarDados('Estoque_MateriaPrima');
+      const response = await fetch(`${API_BASE_URL}/api/materia-prima`);
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar matérias-primas');
+      }
+
+      const dadosMateriaPrima = await response.json();
       console.log('Dados de matéria-prima recebidos:', dadosMateriaPrima);
 
       if (dadosMateriaPrima && dadosMateriaPrima.length > 0) {
@@ -122,7 +137,7 @@ const Estoque = () => {
   // Memoize filtered matérias-primas
   const filteredMateriasPrimas = useMemo(() => {
     return materiasPrimas.filter(item => {
-      const quantidade = item.quantidade_mp || item["Quantidade Atual"] || 0;
+      const quantidade = item.quantidade_atual ?? item.quantidade_mp ?? item["Quantidade Atual"] ?? 0;
 
       const matchesQuantity = filters.quantity === "todos" ? true :
         filters.quantity === "sem-estoque" ? quantidade === 0 :
@@ -133,7 +148,31 @@ const Estoque = () => {
     });
   }, [materiasPrimas, filters.quantity]);
 
-  const carregarDados = useCallback(() => {
+  // Calcular estatísticas de matérias-primas
+  const materiaPrimaStats = useMemo(() => {
+    let totalValue = 0;
+    let lowStock = 0;
+    let outOfStock = 0;
+
+    materiasPrimas.forEach(mp => {
+      const quantidade = mp.quantidade_atual ?? mp.quantidade_mp ?? mp["Quantidade Atual"] ?? 0;
+      const custoUnitario = mp.custo_unitario ?? mp.custo_unitario_mp ?? mp["Custo Unitário"] ?? 0;
+
+      totalValue += quantidade * custoUnitario;
+
+      if (quantidade === 0) {
+        outOfStock++;
+      } else if (quantidade < 10) {
+        lowStock++;
+      }
+    });
+
+    return {
+      totalValue,
+      lowStock,
+      outOfStock
+    };
+  }, [materiasPrimas]); const carregarDados = useCallback(() => {
     refreshProducts();
     carregarMateriaPrima();
   }, [refreshProducts, carregarMateriaPrima]);
@@ -198,54 +237,112 @@ const Estoque = () => {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log('📊 Dados importados:', jsonData);
+      console.log('📊 Abas disponíveis:', workbook.SheetNames);
 
-      if (jsonData.length === 0) {
-        toast.warning("Planilha vazia", {
-          description: "Não há dados para importar"
-        });
-        setIsImporting(false);
-        return;
-      }
+      // Buscar aba "Estoque" para produtos
+      const abaEstoque = workbook.SheetNames.find(name =>
+        name.toLowerCase().includes('estoque') &&
+        !name.toLowerCase().includes('materia') &&
+        !name.toLowerCase().includes('prima')
+      );
 
-      // Determinar se é produtos ou matéria-prima baseado nas colunas
-      const firstRow: any = jsonData[0];
-      const isProduto = 'Nome do Produto' in firstRow || 'Nome Produto' in firstRow;
-      const isMateriaPrima = 'Nome da Matéria-Prima' in firstRow || 'Nome Matéria-Prima' in firstRow;
+      // Buscar aba "Estoque_Materia_Prima" para matéria-prima
+      const abaMateriaPrima = workbook.SheetNames.find(name =>
+        name.toLowerCase().includes('estoque') &&
+        (name.toLowerCase().includes('materia') || name.toLowerCase().includes('prima'))
+      );
 
-      let sucessos = 0;
-      let erros = 0;
+      console.log('📦 Aba Produtos encontrada:', abaEstoque);
+      console.log('🧱 Aba Matéria-Prima encontrada:', abaMateriaPrima);
+
+      // Mostrar TODAS as abas para debug
+      console.log('🔍 Análise de todas as abas:');
+      workbook.SheetNames.forEach(name => {
+        const hasEstoque = name.toLowerCase().includes('estoque');
+        const hasMateria = name.toLowerCase().includes('materia');
+        const hasPrima = name.toLowerCase().includes('prima');
+        console.log(`  - "${name}": estoque=${hasEstoque}, materia=${hasMateria}, prima=${hasPrima}`);
+      });
+
+      let sucessosProdutos = 0;
+      let errosProdutos = 0;
+      let sucessosMP = 0;
+      let errosMP = 0;
       const errosDetalhados: string[] = [];
 
-      if (isProduto) {
-        // Importar produtos
-        for (const row of jsonData as any[]) {
+      // IMPORTAR PRODUTOS (Aba "Estoque")
+      if (abaEstoque) {
+        console.log('🚀 Importando produtos da aba:', abaEstoque);
+        const worksheetProdutos = workbook.Sheets[abaEstoque];
+        const dadosProdutos = XLSX.utils.sheet_to_json(worksheetProdutos);
+
+        console.log(`📦 Total de linhas encontradas: ${dadosProdutos.length}`);
+        console.log('📦 Primeiras 3 linhas para análise:', dadosProdutos.slice(0, 3));
+        console.log('📦 Nomes das colunas:', dadosProdutos.length > 0 ? Object.keys(dadosProdutos[0]) : []);
+
+        // LOG ADICIONAL: Mostrar TODAS as chaves da primeira linha
+        if (dadosProdutos.length > 0) {
+          console.log('🔍 PRIMEIRA LINHA COMPLETA:');
+          Object.keys(dadosProdutos[0]).forEach(key => {
+            console.log(`   "${key}" = "${dadosProdutos[0][key]}"`);
+          });
+        }
+
+        let linhaAtual = 0;
+        for (const row of dadosProdutos as any[]) {
+          linhaAtual++;
           try {
-            const sku = row.SKU || row.sku;
+            // Tentar diferentes variações de nomes de colunas
+            const sku = row.SKU ||
+              row.sku ||
+              row['Código'] ||
+              row.codigo ||
+              row['CÓDIGO'] ||
+              row.__EMPTY;  // ← Índice 0 (primeira coluna)
 
-            const payload = {
-              sku: sku,  // Adicionar SKU no payload
-              nome_produto: row['Nome do Produto'] || row['Nome Produto'] || row.nome,
-              categoria: row.Categoria || row.categoria,
-              tipo_produto: row.Tipo || row['Tipo Produto'] || row.tipo_produto,
-              quantidade_atual: Number(row.Quantidade || row['Quantidade Atual'] || row.quantidade || 0),
-              unidade_medida: row.Unidade || row['Unidade de Medida'] || row.unidade_medida,
-              preco_unitario: Number(row['Preço Unitário'] || row.preco_unitario || 0),
-              componentes: [] // Array vazio para produtos simples
-            };
+            const nome = row['Nome Produto'] ||
+              row['Nome do Produto'] ||
+              row['Nome'] ||
+              row.nome ||
+              row['Descrição'] ||
+              row['Descricao'] ||
+              row.descricao ||
+              row['NOME'] ||
+              row['DESCRIÇÃO'] ||
+              row.__EMPTY_1;  // ← Índice 1 (segunda coluna)
 
-            // Validação básica
-            if (!sku) {
-              errosDetalhados.push(`Linha sem SKU: ${JSON.stringify(row)}`);
-              erros++;
+            // Validação básica COM LOG DETALHADO
+            if (!sku || !nome) {
+              console.warn(`⚠️ Linha ${linhaAtual}: Produto ignorado - SKU="${sku}", Nome="${nome}"`);
+              console.warn(`   Colunas disponíveis:`, Object.keys(row));
+              console.warn(`   VALORES DAS COLUNAS:`, JSON.stringify(row, null, 2));
+              errosDetalhados.push(`Linha ${linhaAtual}: Produto sem SKU ou Nome`);
+              errosProdutos++;
               continue;
             }
 
+            const categoria = row.Categoria || row.categoria || row.__EMPTY_2;  // ← Coluna 3
+            const tipoProduto = row['Tipo Produto'] || row['Tipo'] || row.tipo_produto || row.__EMPTY_3 || 'Fabricado';  // ← Coluna 4
+            const quantidade = Number(row['Quantidade Atual'] || row.Quantidade || row.quantidade || row.__EMPTY_4 || 0);  // ← Coluna 5
+            const unidade = row['Unidade de Medida'] || row.Unidade || row.unidade_medida || 'UN';
+            const preco = Number(row['Preço Unitário'] || row['Preco Unitario'] || row.preco_unitario || row.__EMPTY_6 || 0);  // ← Coluna 7
+
+            const payload = {
+              sku,
+              nome_produto: nome,
+              categoria,
+              tipo_produto: tipoProduto,
+              quantidade_atual: quantidade,
+              unidade_medida: unidade,
+              preco_unitario: preco,
+              componentes: []
+            };
+
+            console.log(`📦 Processando produto: ${sku} - ${nome}`);
+
             // Tentar PUT primeiro (atualizar), se falhar, usar POST (criar)
-            let response = await fetch(`/api/estoque/${sku}`, {
+            let response = await fetch(`${API_BASE_URL}/api/estoque/${sku}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -254,7 +351,7 @@ const Estoque = () => {
             // Se retornou 404, produto não existe, então criar
             if (response.status === 404) {
               console.log(`ℹ️ ${sku}: Não existe, criando novo produto...`);
-              response = await fetch('/api/estoque', {
+              response = await fetch(`${API_BASE_URL}/api/estoque`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -262,61 +359,94 @@ const Estoque = () => {
             }
 
             if (response.ok) {
-              sucessos++;
-              const result = await response.json();
-              console.log(`✅ ${sku}: Sucesso`, result);
+              sucessosProdutos++;
+              console.log(`✅ Produto ${sku}: Sucesso`);
             } else {
-              const contentType = response.headers.get('content-type');
-              let errorMsg = `Status ${response.status}`;
-
-              try {
-                if (contentType?.includes('application/json')) {
-                  const errorData = await response.json();
-                  errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
-                  console.error(`❌ ${sku}: JSON Error`, errorData);
-                } else {
-                  const textError = await response.text();
-                  errorMsg = textError.substring(0, 200);
-                  console.error(`❌ ${sku}: Text Error`, textError);
-                }
-              } catch (e) {
-                errorMsg = `Erro ao processar resposta: ${response.statusText}`;
-                console.error(`❌ ${sku}: Parse Error`, e);
-              }
-
-              errosDetalhados.push(`${sku}: ${errorMsg}`);
-              erros++;
+              const errorMsg = await response.text();
+              errosDetalhados.push(`Produto ${sku}: ${errorMsg.substring(0, 200)}`);
+              errosProdutos++;
+              console.error(`❌ Produto ${sku}: Erro`, errorMsg);
             }
           } catch (error: any) {
-            errosDetalhados.push(`${row.SKU || 'SKU desconhecido'}: ${error.message}`);
-            erros++;
+            errosDetalhados.push(`Produto ${row.SKU || 'desconhecido'}: ${error.message}`);
+            errosProdutos++;
+            console.error('❌ Erro ao processar produto:', error);
           }
         }
-      } else if (isMateriaPrima) {
-        // Importar matéria-prima
-        for (const row of jsonData as any[]) {
+      }
+
+      // IMPORTAR MATÉRIA-PRIMA (Aba "Estoque_Materia_Prima")
+      if (abaMateriaPrima) {
+        console.log('🚀 Importando matérias-primas da aba:', abaMateriaPrima);
+        const worksheetMP = workbook.Sheets[abaMateriaPrima];
+        const dadosMP = XLSX.utils.sheet_to_json(worksheetMP);
+
+        console.log(`🧱 Total de linhas encontradas: ${dadosMP.length}`);
+        console.log('🧱 Primeiras 3 linhas para análise:', dadosMP.slice(0, 3));
+        console.log('🧱 Nomes das colunas:', dadosMP.length > 0 ? Object.keys(dadosMP[0]) : []);
+
+        // LOG ADICIONAL: Mostrar TODAS as chaves da primeira linha
+        if (dadosMP.length > 0) {
+          console.log('🔍 PRIMEIRA LINHA DE MATÉRIA-PRIMA COMPLETA:');
+          Object.keys(dadosMP[0]).forEach(key => {
+            console.log(`   "${key}" = "${dadosMP[0][key]}"`);
+          });
+        }
+
+        let linhaMPAtual = 0;
+        for (const row of dadosMP as any[]) {
+          linhaMPAtual++;
           try {
-            const sku = row.SKU || row.sku;
+            // Tentar diferentes variações de nomes de colunas (COM HÍFEN!)
+            const sku = row['SKU Matéria-Prima'] ||
+              row['SKU Materia-Prima'] ||
+              row['SKU MP'] ||
+              row.SKU ||
+              row.sku ||
+              row['Código'] ||
+              row.codigo ||
+              row.__EMPTY;  // ← Índice 0 (primeira coluna)
 
-            const payload = {
-              id_materia_prima: sku, // Usar SKU como ID se não tiver ID específico
-              sku_materia_prima: sku, // Adicionar SKU também
-              nome_materia_prima: row['Nome da Matéria-Prima'] || row['Nome Matéria-Prima'] || row.nome,
-              categoria: row.Categoria || row.categoria,
-              quantidade_atual: Number(row.Quantidade || row['Quantidade Atual'] || row.quantidade || 0),
-              unidade_medida: row.Unidade || row['Unidade de Medida'] || row.unidade_medida,
-              preco_unitario: Number(row['Custo Unitário'] || row.preco_unitario || 0)
-            };
+            const nome = row['Nome Matéria-Prima'] ||  // ← COM HÍFEN!
+              row['Nome Materia-Prima'] ||
+              row['Nome MP'] ||
+              row['Descrição'] ||
+              row['Descricao'] ||
+              row['Nome'] ||
+              row.nome ||
+              row.descricao ||
+              row['NOME'] ||
+              row['DESCRIÇÃO'] ||
+              row.__EMPTY_1;  // ← Índice 1 (segunda coluna)
 
-            // Validação básica
-            if (!sku) {
-              errosDetalhados.push(`Linha sem SKU: ${JSON.stringify(row)}`);
-              erros++;
+            // Validação básica COM LOG DETALHADO
+            if (!sku || !nome) {
+              console.warn(`⚠️ Linha ${linhaMPAtual}: Matéria-Prima ignorada - SKU="${sku}", Nome="${nome}"`);
+              console.warn(`   Colunas disponíveis:`, Object.keys(row));
+              console.warn(`   VALORES DAS COLUNAS:`, JSON.stringify(row, null, 2));
+              errosDetalhados.push(`Linha ${linhaMPAtual}: Matéria-Prima sem SKU ou Nome`);
+              errosMP++;
               continue;
             }
 
+            const categoria = row['Categoria MP'] || row.Categoria || row.categoria || row.__EMPTY_2;  // ← Coluna 3
+            const quantidade = Number(row['Quantidade Atual'] || row.Quantidade || row.quantidade || row.__EMPTY_3 || 0);  // ← Coluna 4
+            const unidade = row['Unidade de Medida'] || row.Unidade || row.unidade_medida || row.__EMPTY_4 || 'UN';  // ← Coluna 5
+            const custo = Number(row['Custo Unitário'] || row['Custo Unitario'] || row.custo_unitario || row.__EMPTY_5 || 0);  // ← Coluna 6
+
+            const payload = {
+              sku_materia_prima: sku,
+              nome: nome,  // ← Backend espera "nome", não "nome_materia_prima"
+              categoria,
+              quantidade_atual: quantidade,
+              unidade_medida: unidade,
+              custo_unitario: custo  // ← Backend espera "custo_unitario", não "preco_unitario"
+            };
+
+            console.log(`🧱 Processando matéria-prima: ${sku} - ${nome}`);
+
             // Tentar PUT primeiro (atualizar), se falhar, usar POST (criar)
-            let response = await fetch(`/api/materia-prima/${sku}`, {
+            let response = await fetch(`${API_BASE_URL}/api/materia-prima/${sku}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -325,7 +455,7 @@ const Estoque = () => {
             // Se retornou 404, matéria-prima não existe, então criar
             if (response.status === 404) {
               console.log(`ℹ️ MP ${sku}: Não existe, criando nova matéria-prima...`);
-              response = await fetch('/api/materia-prima', {
+              response = await fetch(`${API_BASE_URL}/api/materia-prima`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -333,74 +463,74 @@ const Estoque = () => {
             }
 
             if (response.ok) {
-              sucessos++;
-              const result = await response.json();
-              console.log(`✅ MP ${sku}: Sucesso`, result);
+              sucessosMP++;
+              console.log(`✅ Matéria-Prima ${sku}: Sucesso`);
             } else {
-              const contentType = response.headers.get('content-type');
-              let errorMsg = `Status ${response.status}`;
-
-              try {
-                if (contentType?.includes('application/json')) {
-                  const errorData = await response.json();
-                  errorMsg = errorData.error || errorData.message || JSON.stringify(errorData);
-                  console.error(`❌ MP ${sku}: JSON Error`, errorData);
-                } else {
-                  const textError = await response.text();
-                  errorMsg = textError.substring(0, 200);
-                  console.error(`❌ MP ${sku}: Text Error`, textError);
-                }
-              } catch (e) {
-                errorMsg = `Erro ao processar resposta: ${response.statusText}`;
-                console.error(`❌ MP ${sku}: Parse Error`, e);
-              }
-
-              errosDetalhados.push(`${sku}: ${errorMsg}`);
-              erros++;
+              const errorMsg = await response.text();
+              errosDetalhados.push(`MP ${sku}: ${errorMsg.substring(0, 200)}`);
+              errosMP++;
+              console.error(`❌ MP ${sku}: Erro`, errorMsg);
             }
           } catch (error: any) {
-            errosDetalhados.push(`${row.SKU || 'SKU desconhecido'}: ${error.message}`);
-            erros++;
+            errosDetalhados.push(`MP ${row.SKU || 'desconhecido'}: ${error.message}`);
+            errosMP++;
+            console.error('❌ Erro ao processar matéria-prima:', error);
           }
         }
-      } else {
-        toast.error("Formato não reconhecido", {
-          description: "A planilha deve ter as colunas corretas para Produtos ou Matéria-Prima"
-        });
-        setIsImporting(false);
-        return;
       }
 
-      // Exibir resultado
+      // Exibir resultado consolidado
+      const totalSucessos = sucessosProdutos + sucessosMP;
+      const totalErros = errosProdutos + errosMP;
+
+      console.log('📊 RESUMO DA IMPORTAÇÃO:');
+      console.log(`   ✅ Produtos importados: ${sucessosProdutos}`);
+      console.log(`   ❌ Produtos com erro: ${errosProdutos}`);
+      console.log(`   ✅ Matérias-primas importadas: ${sucessosMP}`);
+      console.log(`   ❌ Matérias-primas com erro: ${errosMP}`);
+      console.log(`   🎯 Total de sucessos: ${totalSucessos}`);
+      console.log(`   ⚠️  Total de erros: ${totalErros}`);
+
       if (errosDetalhados.length > 0) {
         console.error('❌ Erros na importação:', errosDetalhados);
       }
 
-      if (sucessos > 0) {
-        toast.success("Importação concluída", {
-          description: `${sucessos} itens atualizados${erros > 0 ? `, ${erros} com erro` : ''}`
+      if (!abaEstoque && !abaMateriaPrima) {
+        toast.error("Abas não encontradas", {
+          description: "A planilha deve ter as abas 'Estoque' e/ou 'Estoque_Materia_Prima'",
+          duration: 5000
         });
+      } else if (totalSucessos > 0) {
+        const detalhes = [
+          sucessosProdutos > 0 ? `${sucessosProdutos} produtos` : null,
+          sucessosMP > 0 ? `${sucessosMP} matérias-primas` : null
+        ].filter(Boolean).join(' e ');
 
-        // Recarregar dados
-        if (isProduto) {
-          refreshProducts();
-        } else {
-          carregarMateriaPrima();
-        }
-      } else {
-        toast.error("Falha na importação", {
-          description: `${erros} erros encontrados. Verifique o console para detalhes.`
+        toast.success("Importação concluída!", {
+          description: `✅ ${detalhes} importados${totalErros > 0 ? ` | ❌ ${totalErros} com erro` : ''}`,
+          duration: 5000
         });
+      } else {
+        toast.error("Nenhum item importado", {
+          description: `${totalErros} erros encontrados. Verifique o console para detalhes.`,
+          duration: 5000
+        });
+      }
+
+      // Recarregar dados após importação
+      if (totalSucessos > 0) {
+        await refreshProducts();
+        await carregarMateriaPrima();
       }
 
     } catch (error) {
       console.error('Erro ao importar:', error);
-      toast.error("Erro ao processar planilha", {
+      toast.error("Erro ao importar planilha", {
         description: error instanceof Error ? error.message : "Erro desconhecido"
       });
     } finally {
       setIsImporting(false);
-      // Limpar o input para permitir reimportar o mesmo arquivo
+      // Limpar o input file para permitir reimportar o mesmo arquivo
       event.target.value = '';
     }
   }, [refreshProducts, carregarMateriaPrima]);
@@ -538,20 +668,32 @@ const Estoque = () => {
                 <Package className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-xl font-semibold text-foreground">{produtosAcabados.length}</p>
-                <p className="text-xs text-muted-foreground">Produtos</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {viewMode === "produtos" ? produtosAcabados.length : materiasPrimas.length}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {viewMode === "produtos" ? "Produtos" : "Matérias-Primas"}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-card rounded-lg border p-4">
+          <div
+            className="bg-card rounded-lg border p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => setViewMode(viewMode === "produtos" ? "materias-primas" : "produtos")}
+          >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-md bg-green-500/10 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-green-500" />
               </div>
-              <div>
-                <p className="text-xl font-semibold text-foreground">{formatCurrency(stats.totalValue)}</p>
-                <p className="text-xs text-muted-foreground">Valor Total (sem kits)</p>
+              <div className="flex-1">
+                <p className="text-xl font-semibold text-foreground">
+                  {formatCurrency(viewMode === "produtos" ? stats.totalValue : materiaPrimaStats.totalValue)}
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  Valor {viewMode === "produtos" ? "Produtos" : "MP"}
+                  <span className="text-xs opacity-50">(clique p/ alternar)</span>
+                </p>
               </div>
             </div>
           </div>
@@ -562,7 +704,9 @@ const Estoque = () => {
                 <AlertTriangle className="w-4 h-4 text-yellow-500" />
               </div>
               <div>
-                <p className="text-xl font-semibold text-foreground">{stats.lowStock}</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {viewMode === "produtos" ? stats.lowStock : materiaPrimaStats.lowStock}
+                </p>
                 <p className="text-xs text-muted-foreground">Estoque Baixo</p>
               </div>
             </div>
@@ -574,7 +718,9 @@ const Estoque = () => {
                 <TrendingDown className="w-4 h-4 text-red-500" />
               </div>
               <div>
-                <p className="text-xl font-semibold text-foreground">{stats.outOfStock}</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {viewMode === "produtos" ? stats.outOfStock : materiaPrimaStats.outOfStock}
+                </p>
                 <p className="text-xs text-muted-foreground">Sem Estoque</p>
               </div>
             </div>
@@ -624,7 +770,11 @@ const Estoque = () => {
           </Select>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value);
+          // Sincronizar viewMode com a aba selecionada
+          setViewMode(value === "estoque" ? "produtos" : "materias-primas");
+        }} className="w-full">
           <TabsList className="bg-muted/50 border border-border/50">
             <TabsTrigger value="estoque" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               Produtos Acabados ({produtosAcabados.length})
@@ -681,12 +831,12 @@ const Estoque = () => {
             {editingMateriaPrima && (
               <MateriaPrimaForm
                 materiaPrima={{
-                  sku: editingMateriaPrima["SKU Matéria-Prima"] || editingMateriaPrima.sku_materia_prima,
-                  nome: editingMateriaPrima["Nome Matéria-Prima"] || editingMateriaPrima.nome_materia_prima,
-                  categoria: editingMateriaPrima["Categoria MP"] || editingMateriaPrima.categoria_mp,
-                  quantidade: editingMateriaPrima["Quantidade Atual"] || editingMateriaPrima.quantidade_mp,
-                  unidade_medida: editingMateriaPrima["Unidade de Medida"] || editingMateriaPrima.unidade_mp,
-                  custo_unitario: editingMateriaPrima["Custo Unitário"] || editingMateriaPrima.custo_unitario_mp
+                  sku: editingMateriaPrima.sku_mp || editingMateriaPrima.sku_materia_prima || editingMateriaPrima["SKU Matéria-Prima"],
+                  nome: editingMateriaPrima.nome || editingMateriaPrima.nome_materia_prima || editingMateriaPrima["Nome Matéria-Prima"],
+                  categoria: editingMateriaPrima.categoria || editingMateriaPrima.categoria_mp || editingMateriaPrima["Categoria MP"],
+                  quantidade: editingMateriaPrima.quantidade_atual ?? editingMateriaPrima.quantidade_mp ?? editingMateriaPrima["Quantidade Atual"],
+                  unidade_medida: editingMateriaPrima.unidade_medida || editingMateriaPrima.unidade_mp || editingMateriaPrima["Unidade de Medida"],
+                  custo_unitario: editingMateriaPrima.custo_unitario ?? editingMateriaPrima.custo_unitario_mp ?? editingMateriaPrima["Custo Unitário"]
                 }}
                 onSuccess={() => {
                   setEditingMateriaPrima(null);

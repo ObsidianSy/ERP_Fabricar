@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
+import { logActivity } from '../services/activityLogger';
 
 export const estoqueRouter = Router();
 
@@ -22,7 +23,6 @@ estoqueRouter.get('/', async (req: Request, res: Response) => {
         e.kit_bom,
         e.is_kit,
         e.kit_bom_hash,
-        pf.foto_url,
         COALESCE(
           json_agg(
             json_build_object(
@@ -33,8 +33,7 @@ estoqueRouter.get('/', async (req: Request, res: Response) => {
         ) as componentes
       FROM obsidian.produtos e
       LEFT JOIN obsidian.kit_components ck ON e.sku = ck.kit_sku
-      LEFT JOIN obsidian.produto_fotos pf ON obsidian.extrair_produto_base(e.sku) = pf.produto_base
-      GROUP BY e.id, e.sku, e.nome, e.categoria, e.tipo_produto, e.quantidade_atual, e.unidade_medida, e.preco_unitario, e.ativo, e.criado_em, e.atualizado_em, e.kit_bom, e.is_kit, e.kit_bom_hash, pf.foto_url
+      GROUP BY e.id, e.sku, e.nome, e.categoria, e.tipo_produto, e.quantidade_atual, e.unidade_medida, e.preco_unitario, e.ativo, e.criado_em, e.atualizado_em, e.kit_bom, e.is_kit, e.kit_bom_hash
       ORDER BY e.criado_em DESC
     `);
 
@@ -131,6 +130,24 @@ estoqueRouter.post('/', async (req: Request, res: Response) => {
         }
 
         await client.query('COMMIT');
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'produto_criado',
+            entity_type: 'produto',
+            entity_id: sku,
+            details: {
+                nome: nome_produto,
+                categoria,
+                tipo_produto,
+                quantidade_inicial: quantidade_atual || 0,
+                preco_unitario: preco_unitario || 0,
+                is_kit: isKit,
+                componentes: componentes?.length || 0
+            }
+        });
 
         res.status(201).json(produtoResult.rows[0]);
     } catch (error: any) {
@@ -233,6 +250,23 @@ estoqueRouter.delete('/:sku', async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Produto não encontrado' });
         }
 
+        const produtoExcluido = result.rows[0];
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'produto_excluido',
+            entity_type: 'produto',
+            entity_id: sku,
+            details: {
+                nome: produtoExcluido.nome,
+                categoria: produtoExcluido.categoria,
+                tipo_produto: produtoExcluido.tipo_produto,
+                quantidade_final: produtoExcluido.quantidade_atual
+            }
+        });
+
         res.json({ message: 'Produto excluído com sucesso' });
     } catch (error) {
         console.error('Erro ao excluir produto:', error);
@@ -245,7 +279,7 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
     const client = await pool.connect();
 
     try {
-        const { sku, quantidade, origem_tabela, origem_id, observacao } = req.body;
+        const { sku, quantidade, origem_tabela, origem_id, observacao, tipo_entrada } = req.body;
 
         if (!sku || !quantidade) {
             return res.status(400).json({ error: 'SKU e quantidade são obrigatórios' });
@@ -269,12 +303,81 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
         }
 
         const produto = produtoCheck.rows[0];
+        const materiasAbatidas = [];
+
+        // Apenas abate matérias-primas se for entrada por fabricação
+        if (tipo_entrada === 'fabricacao' || !tipo_entrada) {
+            // Buscar receita do produto
+            const receitaResult = await client.query(
+                'SELECT sku_mp, quantidade_por_produto, unidade_medida FROM obsidian.receita_produto WHERE sku_produto = $1',
+                [sku]
+            );
+
+            if (receitaResult.rows.length > 0) {
+                // Verificar se há matérias-primas suficientes
+                const materiasPrimasInsuficientes = [];
+                for (const item of receitaResult.rows) {
+                    const mpCheck = await client.query(
+                        'SELECT sku_mp, nome, quantidade_atual FROM obsidian.materia_prima WHERE sku_mp = $1',
+                        [item.sku_mp]
+                    );
+
+                    if (mpCheck.rows.length > 0) {
+                        const mp = mpCheck.rows[0];
+                        const quantidadeNecessaria = parseFloat(item.quantidade_por_produto) * quantidade;
+                        const quantidadeDisponivel = parseFloat(mp.quantidade_atual);
+
+                        if (quantidadeDisponivel < quantidadeNecessaria) {
+                            materiasPrimasInsuficientes.push({
+                                sku: mp.sku_mp,
+                                nome: mp.nome,
+                                necessaria: quantidadeNecessaria,
+                                disponivel: quantidadeDisponivel,
+                                faltando: quantidadeNecessaria - quantidadeDisponivel
+                            });
+                        }
+                    }
+                }
+
+                // Se houver matérias-primas insuficientes, abortar
+                if (materiasPrimasInsuficientes.length > 0) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({
+                        error: 'Matérias-primas insuficientes',
+                        detalhes: materiasPrimasInsuficientes
+                    });
+                }
+
+                // Abater matérias-primas do estoque
+                for (const item of receitaResult.rows) {
+                    const quantidadeAbater = parseFloat(item.quantidade_por_produto) * quantidade;
+
+                    const updateMp = await client.query(
+                        `UPDATE obsidian.materia_prima 
+                         SET quantidade_atual = quantidade_atual - $1,
+                             atualizado_em = NOW()
+                         WHERE sku_mp = $2
+                         RETURNING sku_mp, nome, quantidade_atual`,
+                        [quantidadeAbater, item.sku_mp]
+                    );
+
+                    if (updateMp.rows.length > 0) {
+                        materiasAbatidas.push({
+                            sku_mp: item.sku_mp,
+                            nome: updateMp.rows[0].nome,
+                            quantidade_abatida: quantidadeAbater,
+                            saldo_atual: parseFloat(updateMp.rows[0].quantidade_atual)
+                        });
+                    }
+                }
+            }
+        }
 
         // Registrar movimento de estoque
         await client.query(
             `INSERT INTO obsidian.estoque_movimentos (sku, tipo, quantidade, origem_tabela, origem_id, observacao)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [sku, origem_tabela || 'manual', quantidade, origem_tabela || 'manual', origem_id, observacao]
+            [sku, tipo_entrada || origem_tabela || 'manual', quantidade, origem_tabela || 'manual', origem_id, observacao]
         );
 
         // Atualizar quantidade atual do produto
@@ -291,15 +394,40 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
 
         const saldoAtual = updateResult.rows[0].quantidade_atual;
 
-        res.json({
+        const response: any = {
             success: true,
             message: 'Entrada registrada com sucesso',
             sku,
             nome_produto: produto.nome,
             quantidade_adicionada: quantidade,
             saldo_anterior: parseFloat(produto.quantidade_atual),
-            saldo_atual: parseFloat(saldoAtual)
+            saldo_atual: parseFloat(saldoAtual),
+            tipo_entrada: tipo_entrada || 'fabricacao'
+        };
+
+        if (materiasAbatidas.length > 0) {
+            response.materias_primas_abatidas = materiasAbatidas;
+        }
+
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'entrada_produto',
+            entity_type: 'produto',
+            entity_id: sku,
+            details: {
+                nome: produto.nome,
+                quantidade_entrada: quantidade,
+                saldo_anterior: parseFloat(produto.quantidade_atual),
+                saldo_atual: parseFloat(saldoAtual),
+                tipo_entrada: tipo_entrada || 'fabricacao',
+                materias_abatidas: materiasAbatidas.length,
+                observacao
+            }
         });
+
+        res.json(response);
 
     } catch (error) {
         await client.query('ROLLBACK');
@@ -320,6 +448,18 @@ estoqueRouter.patch('/:sku/quantidade', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Quantidade é obrigatória' });
         }
 
+        // Buscar quantidade anterior
+        const produtoAnterior = await pool.query(
+            'SELECT nome, quantidade_atual FROM obsidian.produtos WHERE sku = $1',
+            [sku]
+        );
+
+        if (produtoAnterior.rows.length === 0) {
+            return res.status(404).json({ error: 'Produto não encontrado' });
+        }
+
+        const saldoAnterior = parseFloat(produtoAnterior.rows[0].quantidade_atual);
+
         const result = await pool.query(
             `UPDATE obsidian.produtos 
        SET quantidade_atual = $1
@@ -328,9 +468,20 @@ estoqueRouter.patch('/:sku/quantidade', async (req: Request, res: Response) => {
             [quantidade, sku]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Produto não encontrado' });
-        }
+        // Registrar log de atividade
+        await logActivity({
+            user_email: req.body.user_email || 'sistema',
+            user_name: req.body.user_name || 'Sistema',
+            action: 'ajuste_quantidade_produto',
+            entity_type: 'produto',
+            entity_id: sku,
+            details: {
+                nome: produtoAnterior.rows[0].nome,
+                quantidade_anterior: saldoAnterior,
+                quantidade_nova: parseFloat(quantidade),
+                diferenca: parseFloat(quantidade) - saldoAnterior
+            }
+        });
 
         res.json(result.rows[0]);
     } catch (error) {

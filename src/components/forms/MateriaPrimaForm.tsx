@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { API_BASE_URL } from "@/config/api";
 import { toast } from "sonner";
 import { salvarMateriaPrima, gerarIdMateriaPrima, type MateriaPrimaData } from "@/services/n8nIntegration";
 
@@ -43,36 +45,50 @@ const MateriaPrimaForm = ({ onSuccess, materiaPrima }: MateriaPrimaFormProps) =>
     setIsSubmitting(true);
 
     try {
-      const materiaPrimaData: MateriaPrimaData = {
-        "ID MateriaPrima": gerarIdMateriaPrima(),
-        "SKU MatériaPrima": formData.skuMateriaPrima,
-        "Nome MatériaPrima": formData.nomeMateriaPrima,
-        "Categoria": formData.categoria,
-        "Quantidade Atual": parseInt(formData.quantidadeAtual),
-        "Unidade de Medida": formData.unidadeMedida,
-        "Preço Unitário": parseFloat(formData.precoUnitario)
+      const payload = {
+        sku_mp: formData.skuMateriaPrima,
+        nome: formData.nomeMateriaPrima,
+        categoria: formData.categoria,
+        quantidade_atual: parseFloat(formData.quantidadeAtual || "0"),
+        unidade_medida: formData.unidadeMedida,
+        custo_unitario: parseFloat(formData.precoUnitario || "0")
       };
 
-      const sucesso = await salvarMateriaPrima(materiaPrimaData);
-      
-      if (sucesso) {
-        toast.success("Matéria-prima cadastrada com sucesso!");
-        // Reset form
-        setFormData({
-          skuMateriaPrima: "",
-          nomeMateriaPrima: "",
-          categoria: "",
-          quantidadeAtual: "",
-          unidadeMedida: "",
-          precoUnitario: ""
-        });
-        onSuccess?.();
-      } else {
-        toast.error("Erro ao cadastrar matéria-prima");
+      const url = materiaPrima?.sku
+        ? `/api/materia-prima/${materiaPrima.sku}`
+        : '/api/materia-prima';
+
+      const method = materiaPrima?.sku ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao salvar matéria-prima');
       }
-    } catch (error) {
-      console.error("Erro ao cadastrar matéria-prima:", error);
-      toast.error("Erro ao cadastrar matéria-prima");
+
+      toast.success(materiaPrima?.sku ? "Matéria-prima atualizada com sucesso!" : "Matéria-prima cadastrada com sucesso!");
+
+      // Reset form
+      setFormData({
+        skuMateriaPrima: "",
+        nomeMateriaPrima: "",
+        categoria: "",
+        quantidadeAtual: "",
+        unidadeMedida: "",
+        precoUnitario: ""
+      });
+
+      onSuccess?.();
+    } catch (error: any) {
+      console.error("Erro ao salvar matéria-prima:", error);
+      toast.error(error.message || "Erro ao salvar matéria-prima");
     } finally {
       setIsSubmitting(false);
     }
@@ -85,6 +101,21 @@ const MateriaPrimaForm = ({ onSuccess, materiaPrima }: MateriaPrimaFormProps) =>
           Cadastrar Matéria-Prima
         </DialogTitle>
       </DialogHeader>
+
+      {/* Foto da Matéria-Prima (se tiver) */}
+      {materiaPrima?.sku && (
+        <div className="flex justify-center">
+          <Avatar className="w-24 h-24">
+            <AvatarImage
+              src={`${API_BASE_URL}/api/materia-prima-fotos/${materiaPrima.sku}/thumbnail`}
+              alt={materiaPrima.nome}
+            />
+            <AvatarFallback className="text-2xl">
+              {materiaPrima.nome?.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -39,17 +39,23 @@ const upload = multer({
 router.get('/', async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
-      SELECT 
-        produto_base,
-        foto_url,
-        foto_filename,
-        COUNT(*) as quantidade_variantes,
-        STRING_AGG(DISTINCT sku, ', ' ORDER BY sku) as skus_variantes
-      FROM obsidian.v_produtos_com_foto
-      GROUP BY produto_base, foto_url, foto_filename
-      ORDER BY produto_base
-    `);
+            SELECT 
+                pf.produto_base,
+                pf.foto_url,
+                pf.foto_filename,
+                pf.foto_size,
+                pf.created_at,
+                pf.updated_at,
+                COUNT(p.sku) as quantidade_variantes,
+                STRING_AGG(DISTINCT p.sku, ', ' ORDER BY p.sku) as skus_variantes,
+                MAX(p.nome) as nome_exemplo
+            FROM obsidian.produto_fotos pf
+            LEFT JOIN obsidian.produtos p ON obsidian.extrair_produto_base(p.sku) = pf.produto_base
+            GROUP BY pf.produto_base, pf.foto_url, pf.foto_filename, pf.foto_size, pf.created_at, pf.updated_at
+            ORDER BY pf.produto_base
+        `);
 
+        console.log(`📸 Encontradas ${result.rows.length} fotos de produtos cadastradas`);
         res.json(result.rows);
     } catch (error: any) {
         console.error('Erro ao listar produtos com fotos:', error);
@@ -110,17 +116,54 @@ router.post('/', upload.single('foto'), async (req: Request, res: Response) => {
     }
 });
 
+// GET /api/produto-fotos/:produto_base/thumbnail - Retorna a foto de um produto
+router.get('/:produto_base/thumbnail', async (req: Request, res: Response) => {
+    try {
+        const { produto_base } = req.params;
+        const produtoBaseUpper = decodeURIComponent(produto_base).toUpperCase();
+
+        console.log(`📸 Buscando foto para produto base: ${produtoBaseUpper}`);
+
+        const result = await pool.query(`
+            SELECT foto_filename 
+            FROM obsidian.produto_fotos 
+            WHERE UPPER(produto_base) = $1
+        `, [produtoBaseUpper]);
+
+        if (result.rows.length === 0) {
+            console.log(`❌ Foto não encontrada para produto: ${produtoBaseUpper}`);
+            return res.status(404).json({ error: 'Foto não encontrada' });
+        }
+
+        const filePath = path.join(__dirname, '../../uploads/fotos-produtos', result.rows[0].foto_filename);
+
+        console.log(`✅ Foto encontrada: ${result.rows[0].foto_filename}`);
+        console.log(`📂 Caminho: ${filePath}`);
+
+        if (!fs.existsSync(filePath)) {
+            console.log(`❌ Arquivo físico não encontrado: ${filePath}`);
+            return res.status(404).json({ error: 'Arquivo de foto não encontrado' });
+        }
+
+        res.sendFile(filePath);
+    } catch (error: any) {
+        console.error('Erro ao buscar foto:', error);
+        res.status(500).json({ error: 'Erro ao buscar foto' });
+    }
+});
+
 // DELETE /api/produto-fotos/:produto_base - Remove foto de produto
 router.delete('/:produto_base', async (req: Request, res: Response) => {
     try {
         const { produto_base } = req.params;
+        const produtoBaseUpper = decodeURIComponent(produto_base).toUpperCase();
 
         // Buscar informações da foto antes de deletar
         const foto = await pool.query(`
       SELECT foto_filename 
       FROM obsidian.produto_fotos 
-      WHERE produto_base = $1
-    `, [produto_base.toUpperCase()]);
+      WHERE UPPER(produto_base) = $1
+    `, [produtoBaseUpper]);
 
         if (foto.rows.length === 0) {
             return res.status(404).json({ error: 'Foto não encontrada' });
@@ -129,8 +172,8 @@ router.delete('/:produto_base', async (req: Request, res: Response) => {
         // Deletar registro do banco
         await pool.query(`
       DELETE FROM obsidian.produto_fotos 
-      WHERE produto_base = $1
-    `, [produto_base.toUpperCase()]);
+      WHERE UPPER(produto_base) = $1
+    `, [produtoBaseUpper]);
 
         // Remover arquivo físico
         const filePath = path.join(__dirname, '../../uploads/fotos-produtos', foto.rows[0].foto_filename);

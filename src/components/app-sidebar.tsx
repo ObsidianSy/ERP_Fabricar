@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
-  Database,
+  Factory,
   Package,
   ShoppingCart,
   Users,
@@ -50,7 +50,7 @@ const data = {
     {
       title: "Dashboard",
       url: "/",
-      icon: Database,
+      icon: Factory,
     },
     {
       title: "Estoque",
@@ -129,10 +129,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg">
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow text-sidebar-primary-foreground">
-                <Database className="size-4" />
+                <Factory className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Opus_One</span>
+                <span className="truncate font-semibold">Obs Fabrica</span>
                 <span className="truncate text-xs">Sistema de Gestão</span>
               </div>
             </SidebarMenuButton>
@@ -151,6 +151,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     asChild
                     tooltip={item.title}
                     isActive={isActive(item.url)}
+                    className="transition-all hover:bg-accent/60"
                   >
                     <NavLink to={item.url}>
                       <item.icon />

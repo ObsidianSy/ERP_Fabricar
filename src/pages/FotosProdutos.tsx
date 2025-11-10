@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { apiRequest } from '@/config/api';
+import { apiRequest, API_BASE_URL } from '@/config/api';
 import { Upload, X, Search, Image as ImageIcon, Check, AlertCircle, ChevronDown, ArrowLeft, FileText } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -138,7 +138,7 @@ export default function FotosProdutos() {
             formData.append('foto', arquivo);
             formData.append('produto_base', produtoSelecionado);
 
-            await fetch(`${import.meta.env.VITE_API_URL}/api/produto-fotos`, {
+            await fetch(`${API_BASE_URL}/api/produto-fotos`, {
                 method: 'POST',
                 body: formData,
             });
@@ -240,7 +240,7 @@ export default function FotosProdutos() {
 
                 // Carregar imagem
                 try {
-                    const imgUrl = `${import.meta.env.VITE_API_URL}${produto.foto_url}`;
+                    const imgUrl = `${API_BASE_URL}${produto.foto_url}`;
                     const response = await fetch(imgUrl);
                     const blob = await response.blob();
                     const base64 = await new Promise<string>((resolve) => {
@@ -293,25 +293,7 @@ export default function FotosProdutos() {
     };
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => navigate('/estoque')}
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold">Gerenciar Fotos de Produtos</h1>
-                        <p className="text-muted-foreground mt-2">
-                            Adicione fotos para produtos base. Uma foto será aplicada a todas as variações de tamanho.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
+        <div className="space-y-6">
             {/* Alertas */}
             {erro && (
                 <Alert variant="destructive">
@@ -524,17 +506,19 @@ export default function FotosProdutos() {
                                 return (
                                     <Card key={produto.produto_base} className="overflow-hidden">
                                         <div className="aspect-square bg-muted relative">
-                                            {produto.foto_url ? (
-                                                <img
-                                                    src={`${import.meta.env.VITE_API_URL}${produto.foto_url}`}
-                                                    alt={produto.produto_base}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <ImageIcon className="h-12 w-12 opacity-30" />
-                                                </div>
-                                            )}
+                                            <img
+                                                src={`${API_BASE_URL}/api/produto-fotos/${produto.produto_base}/thumbnail`}
+                                                alt={produto.produto_base}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    // Se falhar, mostra placeholder
+                                                    const target = e.currentTarget as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <ImageIcon className="h-12 w-12 opacity-30" />
+                                            </div>
                                             <Button
                                                 size="icon"
                                                 variant="destructive"
