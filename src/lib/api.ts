@@ -16,6 +16,14 @@ export async function apiRequest<T = any>(
 
     // Montar URL
     const url = getApiUrl(endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`);
+    
+    // Debug: mostrar URL completa
+    console.log('🔗 API Request:', {
+        endpoint,
+        url,
+        hostname: window.location.hostname,
+        fullUrl: window.location.origin + url
+    });
 
     // Preparar headers
     const headers: HeadersInit = {
