@@ -14,8 +14,11 @@ import {
   LogOut,
   Activity,
   PackageX,
-  Shield
+  Shield,
+  Moon,
+  Sun
 } from "lucide-react"
+import { useTheme } from "next-themes"
 import { useAuth } from "@/contexts/AuthContext"
 
 import {
@@ -39,6 +42,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+interface NavItem {
+  title: string;
+  url: string;
+  icon: any;
+  adminOnly?: boolean;
+}
 
 const data = {
   user: {
@@ -106,6 +116,7 @@ const data = {
       title: "Logs de Atividade",
       url: "/activity-logs",
       icon: Activity,
+      adminOnly: true, // Apenas administradores
     },
   ],
 }
@@ -114,12 +125,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const location = useLocation()
   const { usuario, logout, isAdmin } = useAuth()
+  const { theme, setTheme } = useTheme()
 
   const isActive = (url: string) => {
     if (url === "/") {
       return location.pathname === "/"
     }
     return location.pathname === url || location.pathname.startsWith(`${url}/`)
+  }
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark")
   }
 
   return (
@@ -145,21 +161,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={isActive(item.url)}
-                    className="transition-all hover:bg-accent/60"
-                  >
-                    <NavLink to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {data.navMain
+                .filter((item) => !item.adminOnly || isAdmin())
+                .map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isActive(item.url)}
+                      className="transition-all hover:bg-accent/60"
+                    >
+                      <NavLink to={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -167,6 +185,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter>
         <SidebarMenu>
+          {/* Botão de alternância de tema */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={toggleTheme}
+              tooltip={theme === "dark" ? "Modo Claro" : "Modo Escuro"}
+              className="transition-all hover:bg-accent/60"
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="h-4 w-4" />
+                  <span>Modo Claro</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="h-4 w-4" />
+                  <span>Modo Escuro</span>
+                </>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Menu do usuário */}
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

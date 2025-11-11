@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { getActivityLogs, getActivitySummary, getActivityStats } from '../services/activityLogger';
 import { pool } from '../database/db';
+import { requireAdmin, AuthRequest } from '../middleware/authMiddleware';
 
 export const activityRouter = Router();
 
-// GET - Listar logs de atividade com filtros
-activityRouter.get('/logs', async (req: Request, res: Response) => {
+// GET - Listar logs de atividade com filtros (APENAS ADMIN)
+activityRouter.get('/logs', requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const {
             user_email,
@@ -34,8 +35,8 @@ activityRouter.get('/logs', async (req: Request, res: Response) => {
     }
 });
 
-// GET - Resumo de atividades por usuário
-activityRouter.get('/summary', async (req: Request, res: Response) => {
+// GET - Resumo de atividades por usuário (APENAS ADMIN)
+activityRouter.get('/summary', requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const summary = await getActivitySummary();
         res.json(summary);
@@ -45,8 +46,8 @@ activityRouter.get('/summary', async (req: Request, res: Response) => {
     }
 });
 
-// GET - Estatísticas gerais
-activityRouter.get('/stats', async (req: Request, res: Response) => {
+// GET - Estatísticas gerais (APENAS ADMIN)
+activityRouter.get('/stats', requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const { days = 7 } = req.query;
         const stats = await getActivityStats(parseInt(days as string));
@@ -57,8 +58,8 @@ activityRouter.get('/stats', async (req: Request, res: Response) => {
     }
 });
 
-// GET - Lista de usuários únicos que têm logs
-activityRouter.get('/users', async (req: Request, res: Response) => {
+// GET - Lista de usuários únicos que têm logs (APENAS ADMIN)
+activityRouter.get('/users', requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
         // Buscar todos os usuários ativos da tabela usuarios
         const result = await pool.query(`
@@ -77,8 +78,8 @@ activityRouter.get('/users', async (req: Request, res: Response) => {
     }
 });
 
-// GET - Atividades de um usuário específico
-activityRouter.get('/user/:email', async (req: Request, res: Response) => {
+// GET - Atividades de um usuário específico (APENAS ADMIN)
+activityRouter.get('/user/:email', requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
         const { email } = req.params;
         const { limit = 50 } = req.query;

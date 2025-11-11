@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateFilterSelector } from "@/components/DateFilterSelector";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
@@ -30,6 +31,7 @@ const Layout = ({ children }: LayoutProps) => {
 
             {/* Actions */}
             <div className="flex items-center gap-2 ml-auto px-4">
+              <ThemeToggle />
               <DateFilterSelector />
               <Button
                 onClick={() => navigate("/vendas")}

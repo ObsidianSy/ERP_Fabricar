@@ -9,6 +9,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { DateFilterProvider } from "@/contexts/DateFilterContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PrivateRoute } from "@/components/PrivateRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import Estoque from "./pages/Estoque";
 import EstoqueProduto from "./pages/EstoqueProduto";
@@ -83,9 +84,9 @@ const App = () => (
                   <Route path="/import-planilha" element={<PrivateRoute><ImportPlanilha /></PrivateRoute>} />
                   <Route path="/import-planilha-full" element={<PrivateRoute><ImportPlanilhaFull /></PrivateRoute>} />
                   <Route path="/full-envios" element={<PrivateRoute><FullEnvios /></PrivateRoute>} />
-                  <Route path="/activity-logs" element={<PrivateRoute><ActivityLogs /></PrivateRoute>} />
+                  <Route path="/activity-logs" element={<PrivateRoute><AdminRoute><ActivityLogs /></AdminRoute></PrivateRoute>} />
                   <Route path="/fotos-produtos" element={<PrivateRoute><GerenciarFotos /></PrivateRoute>} />
-                  <Route path="/usuarios" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
+                  <Route path="/usuarios" element={<PrivateRoute><AdminRoute><UserManagement /></AdminRoute></PrivateRoute>} />
 
                   {/* Rota 404 */}
                   <Route path="*" element={<NotFound />} />

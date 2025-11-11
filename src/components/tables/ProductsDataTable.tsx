@@ -264,7 +264,7 @@ const ProductsDataTableComponent = ({
                         {formatCurrencyAbbreviated(valorTotal)}
                       </TableCell>
                       <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
                               <MoreHorizontal className="h-4 w-4" />
@@ -272,17 +272,30 @@ const ProductsDataTableComponent = ({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {onViewDetails && (
-                              <DropdownMenuItem onClick={() => onViewDetails(produto)}>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewDetails(produto);
+                                }}
+                              >
                                 <Package className="mr-2 h-4 w-4" />
                                 Ver Detalhes
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => onEdit(produto)}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(produto);
+                              }}
+                            >
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => setDeleteProduct(produto)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteProduct(produto);
+                              }}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />

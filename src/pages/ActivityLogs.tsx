@@ -64,19 +64,34 @@ const fetchActivityLogs = async (filters: {
         }
     })
 
-    const response = await fetch(`/api/activity/logs?${params}`)
+    const token = localStorage.getItem('token')
+    const response = await fetch(`/api/activity/logs?${params}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     if (!response.ok) throw new Error("Erro ao buscar logs")
     return response.json()
 }
 
 const fetchActivityStats = async (): Promise<ActivityStats> => {
-    const response = await fetch("/api/activity/stats")
+    const token = localStorage.getItem('token')
+    const response = await fetch("/api/activity/stats", {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     if (!response.ok) throw new Error("Erro ao buscar estatísticas")
     return response.json()
 }
 
 const fetchUsers = async (): Promise<User[]> => {
-    const response = await fetch("/api/activity/users")
+    const token = localStorage.getItem('token')
+    const response = await fetch("/api/activity/users", {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     if (!response.ok) throw new Error("Erro ao buscar usuários")
     return response.json()
 }

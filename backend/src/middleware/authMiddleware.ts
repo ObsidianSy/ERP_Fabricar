@@ -72,3 +72,25 @@ export function requireAuth(
     }
     next();
 }
+
+/**
+ * Middleware para rotas que EXIGEM permissão de administrador
+ */
+export function requireAdmin(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) {
+    if (!req.user) {
+        return res.status(401).json({ error: 'Autenticação necessária' });
+    }
+
+    if (req.user.cargo !== 'adm') {
+        return res.status(403).json({ 
+            error: 'Acesso negado', 
+            message: 'Apenas administradores podem acessar este recurso' 
+        });
+    }
+
+    next();
+}
