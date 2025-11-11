@@ -86,9 +86,9 @@ export function requireAdmin(
     }
 
     if (req.user.cargo !== 'adm') {
-        return res.status(403).json({ 
-            error: 'Acesso negado', 
-            message: 'Apenas administradores podem acessar este recurso' 
+        return res.status(403).json({
+            error: 'Acesso negado',
+            message: 'Apenas administradores podem acessar este recurso'
         });
     }
 
