@@ -116,6 +116,19 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
         toast.success(
           `Entrada registrada! Saldo atual: ${responseData.saldo_atual} unidades`
         );
+
+        // Verificar se há alertas de estoque negativo
+        if (responseData.alertas_estoque_negativo && responseData.alertas_estoque_negativo.length > 0) {
+          const alertas = responseData.alertas_estoque_negativo
+            .map((mp: any) => `${mp.nome}: ${mp.saldo_atual} (negativo)`)
+            .join('\n');
+
+          toast.warning("⚠️ Matérias-primas com estoque negativo", {
+            description: alertas,
+            duration: 8000
+          });
+        }
+
         setFormData({
           sku: "",
           nomeProduto: "",
@@ -127,18 +140,8 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
         });
         onSuccess?.();
       } else {
-        // Mostrar mensagem detalhada do erro
-        if (responseData.error === 'Matérias-primas insuficientes' && responseData.detalhes) {
-          const detalhes = responseData.detalhes.map((mp: any) =>
-            `${mp.nome}: necessário ${mp.necessaria}, disponível ${mp.disponivel}`
-          ).join('\n');
-          toast.error("Matérias-primas insuficientes", {
-            description: detalhes,
-            duration: 8000
-          });
-        } else {
-          toast.error(responseData.error || responseData.message || "Erro ao registrar entrada");
-        }
+        // Mostrar mensagem de erro genérica
+        toast.error(responseData.error || responseData.message || "Erro ao registrar entrada");
         throw new Error(responseData.error || responseData.message || "Erro na resposta do servidor");
       }
     } catch (error) {

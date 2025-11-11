@@ -314,41 +314,8 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
             );
 
             if (receitaResult.rows.length > 0) {
-                // Verificar se há matérias-primas suficientes
-                const materiasPrimasInsuficientes = [];
-                for (const item of receitaResult.rows) {
-                    const mpCheck = await client.query(
-                        'SELECT sku_mp, nome, quantidade_atual FROM obsidian.materia_prima WHERE sku_mp = $1',
-                        [item.sku_mp]
-                    );
-
-                    if (mpCheck.rows.length > 0) {
-                        const mp = mpCheck.rows[0];
-                        const quantidadeNecessaria = parseFloat(item.quantidade_por_produto) * quantidade;
-                        const quantidadeDisponivel = parseFloat(mp.quantidade_atual);
-
-                        if (quantidadeDisponivel < quantidadeNecessaria) {
-                            materiasPrimasInsuficientes.push({
-                                sku: mp.sku_mp,
-                                nome: mp.nome,
-                                necessaria: quantidadeNecessaria,
-                                disponivel: quantidadeDisponivel,
-                                faltando: quantidadeNecessaria - quantidadeDisponivel
-                            });
-                        }
-                    }
-                }
-
-                // Se houver matérias-primas insuficientes, abortar
-                if (materiasPrimasInsuficientes.length > 0) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({
-                        error: 'Matérias-primas insuficientes',
-                        detalhes: materiasPrimasInsuficientes
-                    });
-                }
-
-                // Abater matérias-primas do estoque
+                // Abater matérias-primas do estoque (permitindo saldo negativo)
+                const alertasEstoqueNegativo = [];
                 for (const item of receitaResult.rows) {
                     const quantidadeAbater = parseFloat(item.quantidade_por_produto) * quantidade;
 
@@ -362,13 +329,28 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
                     );
 
                     if (updateMp.rows.length > 0) {
+                        const saldoAtual = parseFloat(updateMp.rows[0].quantidade_atual);
                         materiasAbatidas.push({
                             sku_mp: item.sku_mp,
                             nome: updateMp.rows[0].nome,
                             quantidade_abatida: quantidadeAbater,
-                            saldo_atual: parseFloat(updateMp.rows[0].quantidade_atual)
+                            saldo_atual: saldoAtual
                         });
+
+                        // Verificar se ficou negativo
+                        if (saldoAtual < 0) {
+                            alertasEstoqueNegativo.push({
+                                sku_mp: item.sku_mp,
+                                nome: updateMp.rows[0].nome,
+                                saldo_negativo: saldoAtual
+                            });
+                        }
                     }
+                }
+
+                // Adicionar alertas de estoque negativo na resposta (mas não bloquear)
+                if (alertasEstoqueNegativo.length > 0) {
+                    console.log('⚠️ Matérias-primas com estoque negativo:', alertasEstoqueNegativo);
                 }
             }
         }
@@ -407,6 +389,12 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
 
         if (materiasAbatidas.length > 0) {
             response.materias_primas_abatidas = materiasAbatidas;
+
+            // Adicionar alertas de estoque negativo se houver
+            const materiasNegativas = materiasAbatidas.filter(mp => mp.saldo_atual < 0);
+            if (materiasNegativas.length > 0) {
+                response.alertas_estoque_negativo = materiasNegativas;
+            }
         }
 
         // Registrar log de atividade
