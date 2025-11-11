@@ -25,6 +25,7 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
     sku: "",
     nomeProduto: "",
     quantidadeAdicionar: "",
+    tipo_entrada: "fabricacao", // Padrão: fabricacao (abate MP)
     origem_tabela: "manual",
     origem_id: "",
     observacao: ""
@@ -89,6 +90,7 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
       const payload = {
         sku: formData.sku,
         quantidade: quantidade,
+        tipo_entrada: formData.tipo_entrada, // Adicionar tipo_entrada
         origem_tabela: formData.origem_tabela,
         origem_id: formData.origem_id || undefined,
         observacao: formData.observacao || undefined
@@ -118,13 +120,26 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
           sku: "",
           nomeProduto: "",
           quantidadeAdicionar: "",
+          tipo_entrada: "fabricacao",
           origem_tabela: "manual",
           origem_id: "",
           observacao: ""
         });
         onSuccess?.();
       } else {
-        throw new Error(responseData.message || "Erro na resposta do servidor");
+        // Mostrar mensagem detalhada do erro
+        if (responseData.error === 'Matérias-primas insuficientes' && responseData.detalhes) {
+          const detalhes = responseData.detalhes.map((mp: any) => 
+            `${mp.nome}: necessário ${mp.necessaria}, disponível ${mp.disponivel}`
+          ).join('\n');
+          toast.error("Matérias-primas insuficientes", {
+            description: detalhes,
+            duration: 8000
+          });
+        } else {
+          toast.error(responseData.error || responseData.message || "Erro ao registrar entrada");
+        }
+        throw new Error(responseData.error || responseData.message || "Erro na resposta do servidor");
       }
     } catch (error) {
       console.error("❌ Erro ao registrar entrada:", error);
