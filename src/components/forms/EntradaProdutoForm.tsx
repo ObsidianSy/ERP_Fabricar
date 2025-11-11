@@ -98,25 +98,25 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
       const responseData = await api.post("/estoque/entrada", payload);
 
       toast.success(
-          `Entrada registrada! Saldo atual: ${responseData.saldo_atual} unidades`
-        );
+        `Entrada registrada! Saldo atual: ${responseData.saldo_atual} unidades`
+      );
 
-        // Verificar se há alertas de estoque negativo
-        if (responseData.alertas_estoque_negativo && responseData.alertas_estoque_negativo.length > 0) {
-          const alertas = responseData.alertas_estoque_negativo
-            .map((mp: any) => `${mp.nome}: ${mp.saldo_atual} (negativo)`)
-            .join('\n');
+      // Verificar se há alertas de estoque negativo
+      if (responseData.alertas_estoque_negativo && responseData.alertas_estoque_negativo.length > 0) {
+        const alertas = responseData.alertas_estoque_negativo
+          .map((mp: any) => `${mp.nome}: ${mp.saldo_atual} (negativo)`)
+          .join('\n');
 
-          toast.warning("⚠️ Matérias-primas com estoque negativo", {
-            description: alertas,
-            duration: 8000
-          });
-        }
+        toast.warning("⚠️ Matérias-primas com estoque negativo", {
+          description: alertas,
+          duration: 8000
+        });
+      }
 
-        setFormData({
-          sku: "",
-          nomeProduto: "",
-          quantidadeAdicionar: "",
+      setFormData({
+        sku: "",
+        nomeProduto: "",
+        quantidadeAdicionar: "",
         tipo_entrada: "fabricacao",
         origem_tabela: "manual",
         origem_id: "",
