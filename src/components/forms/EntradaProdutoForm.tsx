@@ -129,7 +129,7 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
       } else {
         // Mostrar mensagem detalhada do erro
         if (responseData.error === 'Matérias-primas insuficientes' && responseData.detalhes) {
-          const detalhes = responseData.detalhes.map((mp: any) => 
+          const detalhes = responseData.detalhes.map((mp: any) =>
             `${mp.nome}: necessário ${mp.necessaria}, disponível ${mp.disponivel}`
           ).join('\n');
           toast.error("Matérias-primas insuficientes", {
