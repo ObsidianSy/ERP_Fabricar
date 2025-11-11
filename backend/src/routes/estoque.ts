@@ -390,6 +390,9 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
         }
 
         // Registrar log de atividade
+        console.log('🔍 DEBUG - Usuário do req:', (req as any).user);
+        console.log('🔍 DEBUG - Body:', req.body.user_email, req.body.user_name);
+        
         await logActivity({
             user_email: (req as any).user?.email || req.body.user_email || 'sistema',
             user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
