@@ -83,7 +83,7 @@ export function requireAdmin(
     if (!req.user) {
         return res.status(401).json({ error: 'Autenticação necessária' });
     }
-    
+
     if (req.user.cargo !== 'adm') {
         return res.status(403).json({
             error: 'Acesso negado',
