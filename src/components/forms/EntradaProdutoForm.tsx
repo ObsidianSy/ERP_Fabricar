@@ -8,7 +8,7 @@ import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { consultarDados } from "@/services/n8nIntegration";
 import { sortBySKU } from "@/utils/sortUtils";
-import { getApiUrl } from "@/config/api";
+import { api } from "@/lib/api";
 
 interface ProdutoOption {
   SKU: string;
@@ -38,8 +38,7 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
 
   const carregarProdutos = async () => {
     try {
-      const response = await fetch(getApiUrl("/api/estoque"));
-      const dados = await response.json();
+      const dados = await api.get("/estoque");
 
       // Adaptar formato para o select
       const produtosFormatados = dados.map((p: any) => ({
@@ -90,27 +89,15 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
       const payload = {
         sku: formData.sku,
         quantidade: quantidade,
-        tipo_entrada: formData.tipo_entrada, // Adicionar tipo_entrada
+        tipo_entrada: formData.tipo_entrada,
         origem_tabela: formData.origem_tabela,
         origem_id: formData.origem_id || undefined,
         observacao: formData.observacao || undefined
       };
 
-      const response = await fetch(
-        getApiUrl("/api/estoque/entrada"),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const responseData = await api.post("/estoque/entrada", payload);
 
-      const responseData = await response.json();
-
-      if (response.ok) {
-        toast.success(
+      toast.success(
           `Entrada registrada! Saldo atual: ${responseData.saldo_atual} unidades`
         );
 
@@ -130,17 +117,12 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
           sku: "",
           nomeProduto: "",
           quantidadeAdicionar: "",
-          tipo_entrada: "fabricacao",
-          origem_tabela: "manual",
-          origem_id: "",
-          observacao: ""
-        });
-        onSuccess?.();
-      } else {
-        // Mostrar mensagem de erro genérica
-        toast.error(responseData.error || responseData.message || "Erro ao registrar entrada");
-        throw new Error(responseData.error || responseData.message || "Erro na resposta do servidor");
-      }
+        tipo_entrada: "fabricacao",
+        origem_tabela: "manual",
+        origem_id: "",
+        observacao: ""
+      });
+      onSuccess?.();
     } catch (error) {
       console.error("❌ Erro ao registrar entrada:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao registrar entrada de produto");

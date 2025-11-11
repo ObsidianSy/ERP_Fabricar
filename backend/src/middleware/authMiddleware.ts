@@ -49,7 +49,6 @@ export async function authMiddleware(
                 email: result.rows[0].email,
                 cargo: result.rows[0].cargo
             };
-            console.log('✅ Usuário autenticado:', req.user.nome, req.user.email);
         }
 
         next();
