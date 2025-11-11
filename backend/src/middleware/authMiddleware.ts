@@ -49,15 +49,11 @@ export async function authMiddleware(
                 email: result.rows[0].email,
                 cargo: result.rows[0].cargo
             };
-            console.log('✅ Usuário autenticado:', req.user.email, 'Cargo:', req.user.cargo);
-        } else {
-            console.warn('⚠️ Usuário não encontrado no banco para o token fornecido');
         }
 
         next();
     } catch (error: any) {
-        // Se token inválido, continua sem user
-        console.warn('❌ Token inválido ou expirado:', error.message);
+        // Token inválido, continua sem user
         next();
     }
 }
@@ -84,24 +80,16 @@ export function requireAdmin(
     res: Response,
     next: NextFunction
 ) {
-    console.log('🔐 requireAdmin - Verificando permissões...');
-    console.log('   req.user:', req.user);
-    
     if (!req.user) {
-        console.log('❌ Acesso negado: Usuário não autenticado');
         return res.status(401).json({ error: 'Autenticação necessária' });
     }
-
-    console.log('   Usuário:', req.user.email, 'Cargo:', req.user.cargo);
     
     if (req.user.cargo !== 'adm') {
-        console.log('❌ Acesso negado: Usuário não é administrador');
         return res.status(403).json({
             error: 'Acesso negado',
             message: 'Apenas administradores podem acessar este recurso'
         });
     }
 
-    console.log('✅ Acesso permitido para admin:', req.user.email);
     next();
 }

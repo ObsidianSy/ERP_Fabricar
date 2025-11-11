@@ -96,8 +96,6 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
         observacao: formData.observacao || undefined
       };
 
-      console.log("📤 Enviando entrada de produto:", payload);
-
       const response = await fetch(
         getApiUrl("/api/estoque/entrada"),
         {
@@ -110,7 +108,6 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
       );
 
       const responseData = await response.json();
-      console.log("📥 Resposta do servidor:", responseData);
 
       if (response.ok) {
         toast.success(

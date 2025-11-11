@@ -125,8 +125,6 @@ estoqueRouter.post('/', async (req: Request, res: Response) => {
                     [sku, comp.sku_componente, comp.quantidade_por_kit]
                 );
             }
-
-            console.log(`✅ Kit ${sku} criado com ${componentes.length} componentes`);
         }
 
         await client.query('COMMIT');
@@ -219,8 +217,6 @@ estoqueRouter.put('/:sku', async (req: Request, res: Response) => {
                         [sku, comp.sku_componente, comp.quantidade_por_kit]
                     );
                 }
-
-                console.log(`✅ Kit ${sku} atualizado com ${componentes.length} componentes`);
             }
         }
 
@@ -348,10 +344,6 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
                     }
                 }
 
-                // Adicionar alertas de estoque negativo na resposta (mas não bloquear)
-                if (alertasEstoqueNegativo.length > 0) {
-                    console.log('⚠️ Matérias-primas com estoque negativo:', alertasEstoqueNegativo);
-                }
             }
         }
 
@@ -484,19 +476,11 @@ estoqueRouter.post('/kits/find-by-composition', async (req: Request, res: Respon
         // Aceita tanto 'componentes' quanto 'components' (compatibilidade)
         const componentes = req.body.componentes || req.body.components;
 
-        console.log('🔍 [find-by-composition] Payload recebido:', req.body);
-        console.log('📦 [find-by-composition] Componentes extraídos:', componentes);
-
         if (!componentes || !Array.isArray(componentes) || componentes.length === 0) {
-            console.log('❌ [find-by-composition] Componentes inválidos');
             return res.status(400).json({ error: 'Componentes são obrigatórios' });
         }
 
-        // Buscar kits que contenham EXATAMENTE esses componentes
-        // Converte array de componentes em formato para query
         const componentSkus = componentes.map((c: any) => c.sku || c.sku_componente).filter(Boolean);
-
-        console.log('🎯 [find-by-composition] SKUs a buscar:', componentSkus);
 
         if (componentSkus.length === 0) {
             return res.status(400).json({ error: 'SKUs de componentes inválidos' });
@@ -576,8 +560,6 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
         let preco_unitario = req.body.preco_unitario;
         let raw_id = req.body.raw_id;
 
-        console.log('🎁 [create-and-relate] Payload recebido:', req.body);
-
         // Se formato frontend (com kit e components)
         if (req.body.kit) {
             nome = req.body.kit.nome;
@@ -593,19 +575,15 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
                 .join('-');
 
             sku = `KIT-${componentSkus.substring(0, 50)}`;
-            console.log('🔧 [create-and-relate] SKU gerado:', sku);
         }
 
         if (!nome || !componentes || !Array.isArray(componentes) || componentes.length === 0) {
-            console.log('❌ [create-and-relate] Dados inválidos:', { nome, componentes });
             return res.status(400).json({ error: 'Nome e componentes são obrigatórios' });
         }
 
         await client.query('BEGIN');
 
         // Criar o kit
-        // Temporariamente criar com kit_bom vazio (será preenchido depois)
-        console.log('📝 [create-and-relate] Inserindo kit:', { sku, nome, preco_unitario });
         const kitResult = await client.query(
             `INSERT INTO obsidian.produtos (sku, nome, tipo_produto, quantidade_atual, unidade_medida, preco_unitario, ativo, kit_bom)
      VALUES ($1, $2, 'KIT', 0, 'UN', $3, true, '[]'::jsonb)
@@ -617,9 +595,6 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
             [sku, nome, preco_unitario || 0]
         );
 
-        console.log('✅ [create-and-relate] Kit inserido/atualizado:', kitResult.rows[0]?.sku);
-
-        // Remover componentes antigos (caso seja update)
         // Montar o array de componentes no formato { sku, qty }
         const kitBomArray = [];
         for (const comp of componentes) {
@@ -627,8 +602,6 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
             const compQty = comp.q || comp.qty || comp.quantidade_por_kit || 1;
 
             if (!compSku) continue;
-
-            console.log('📦 [create-and-relate] Processando componente:', { compSku, compQty });
 
             // Verificar se componente existe
             const componenteExists = await client.query(
@@ -638,7 +611,6 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
 
             if (componenteExists.rows.length === 0) {
                 await client.query('ROLLBACK');
-                console.log('❌ [create-and-relate] Componente não existe:', compSku);
                 return res.status(400).json({
                     error: `Componente ${compSku} não existe no estoque. Cadastre-o primeiro.`
                 });
@@ -650,7 +622,6 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
 
         // Atualizar a coluna kit_bom com os componentes
         const kitBomJson = JSON.stringify(kitBomArray);
-        console.log('📝 [create-and-relate] Atualizando kit_bom:', kitBomJson);
         await client.query(
             `UPDATE obsidian.produtos
      SET kit_bom = $1::jsonb
@@ -658,11 +629,7 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
             [kitBomJson, sku]
         );
 
-        console.log('✅ kit_bom atualizado:', kitBomJson);
-
-        // 🔥 AUTO-RELACIONAMENTO EM LOTE: Relacionar TODOS os itens pendentes com o mesmo nome
-        console.log('� [create-and-relate] Buscando TODOS os registros pendentes com nome:', nome);
-
+        // Auto-relacionamento em lote
         const bulkUpdateResult = await client.query(
             `UPDATE logistica.full_envio_raw 
              SET matched_sku = $1, 
@@ -675,15 +642,10 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
         );
 
         if (bulkUpdateResult.rows.length > 0) {
-            console.log(`✅ [create-and-relate] ${bulkUpdateResult.rows.length} registro(s) relacionado(s) automaticamente!`);
-            console.log('📦 IDs relacionados:', bulkUpdateResult.rows.map(r => r.id).join(', '));
-        } else {
-            console.log('⚠️ [create-and-relate] Nenhum registro pendente encontrado para relacionar');
+            // Registros relacionados com sucesso
         }
 
-        // 🏷️ CRIAR ALIAS: Para que próximos pedidos sejam auto-relacionados na importação
-        console.log('🏷️ [create-and-relate] Criando alias:', nome, '→', sku);
-
+        // Criar alias para auto-relacionamento futuro
         try {
             // Verificar se alias já existe
             const aliasExists = await client.query(
@@ -713,19 +675,12 @@ estoqueRouter.post('/kits/create-and-relate', async (req: Request, res: Response
                      ON CONFLICT DO NOTHING`,
                     [clientId, nome, sku]
                 );
-                console.log('✅ [create-and-relate] Alias criado! Próximos pedidos serão auto-relacionados.');
-            } else {
-                console.log('ℹ️ [create-and-relate] Alias já existe, pulando criação.');
             }
         } catch (aliasError: any) {
-            console.log('⚠️ [create-and-relate] Erro ao criar alias (não crítico):', aliasError.message);
+            // Erro ao criar alias (não crítico)
         }
 
-        console.log('💾 [create-and-relate] Executando COMMIT...');
         await client.query('COMMIT');
-        console.log('✅ [create-and-relate] COMMIT executado com sucesso!');
-
-        console.log(`✅ Kit ${sku} criado/atualizado com ${componentes.length} componentes`);
 
         res.json({
             success: true,

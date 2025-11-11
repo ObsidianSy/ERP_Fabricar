@@ -104,9 +104,7 @@ enviosRouter.get('/upload-progress/:importId', (req: Request, res: Response) => 
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.flushHeaders(); // Forçar envio dos headers
-
-    console.log(`📡 Cliente conectou ao SSE para importId: ${importId}`);
+    res.flushHeaders();
 
     // Enviar progresso inicial imediatamente
     const sendProgress = () => {
@@ -114,12 +112,10 @@ enviosRouter.get('/upload-progress/:importId', (req: Request, res: Response) => 
         if (progress) {
             const data = JSON.stringify(progress);
             res.write(`data: ${data}\n\n`);
-            console.log(`📊 Enviando progresso: ${progress.stage} - ${progress.current}/${progress.total} (${progress.message})`);
 
             // Se completou, fechar conexão após 2 segundos
             if (progress.stage === 'completed' || progress.stage === 'error') {
                 setTimeout(() => {
-                    console.log(`✅ Upload ${importId} finalizado, limpando memória`);
                     uploadProgress.delete(importId);
                     res.end();
                 }, 2000);
@@ -138,12 +134,11 @@ enviosRouter.get('/upload-progress/:importId', (req: Request, res: Response) => 
     // Enviar imediatamente
     sendProgress();
 
-    // Enviar atualizações a cada 300ms (mais rápido)
+    // Enviar atualizações a cada 300ms
     const interval = setInterval(sendProgress, 300);
 
     // Cleanup quando cliente desconectar
     req.on('close', () => {
-        console.log(`🔌 Cliente desconectou do SSE: ${importId}`);
         clearInterval(interval);
         res.end();
     });
@@ -851,11 +846,6 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
             );
             const remainingPending = parseInt(pendingCount.rows[0].count);
 
-            console.log(`✅ Auto-relacionamento concluído: ${autoMatched} itens relacionados, ${remainingPending} pendentes`);
-
-            // 5. NORMALIZAR E POPULAR full_envio_item (usando função do banco)
-            // Esta função lê de full_envio_raw e popula full_envio_item com SKUs validados
-
             // Atualizar progresso - 90%
             uploadProgress.set(importId, {
                 stage: 'normalizing',
@@ -869,10 +859,8 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
                     `SELECT logistica.full_envio_normalizar($1::bigint)`,
                     [envioId]
                 );
-                console.log(`📦 Normalização concluída - full_envio_item populada`);
             } catch (normError: any) {
-                console.error('⚠️ Erro ao normalizar:', normError.message);
-                // Continua mesmo com erro na normalização
+                // Erro ao normalizar (continua)
             }
 
             // 6. ATUALIZAR STATUS DO LOTE
