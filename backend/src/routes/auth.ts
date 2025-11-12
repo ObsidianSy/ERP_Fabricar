@@ -12,9 +12,35 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Garantir que o body parser está funcionando (fallback)
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
+
 // Login
 router.post('/login', async (req: any, res: Response) => {
+    // Log COMPLETO para debug
+    console.log('=== LOGIN REQUEST ===');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    console.log('Body type:', typeof req.body);
+    console.log('Body keys:', Object.keys(req.body || {}));
+    console.log('====================');
+
     const { email, senha } = req.body;
+
+    // Log para debug
+    console.log('📨 Login request body:', { email: email ? '✓' : '✗', senha: senha ? '✓' : '✗' });
+    console.log('📦 Full body:', req.body);
+
+    // Validação explícita
+    if (!email || !senha) {
+        console.log('❌ Validação falhou - email ou senha ausentes');
+        return res.status(400).json({
+            success: false,
+            error: 'Email e senha são obrigatórios',
+            received: { email: !!email, senha: !!senha }
+        });
+    }
 
     try {
         // Buscar usuário no banco

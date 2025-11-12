@@ -7,12 +7,24 @@ import { useQuickFilters } from "@/hooks/useQuickFilters";
 import { ProductList } from "@/components/ProductList";
 import { notificationManager } from "@/components/NotificationManager";
 import DashboardCard from "@/components/DashboardCard";
-import { ShoppingCart, Plus, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Plus, TrendingUp, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import VendaForm from "@/components/forms/VendaForm";
 import { formatCurrency, formatQuantity, formatNumber, toNumber } from "@/utils/formatters";
 import { API_BASE_URL } from "@/config/api";
+import { excluirVenda } from "@/services/n8nIntegration";
+import { toast } from "sonner";
 
 
 const parseDateLocal = (s?: string) => {
@@ -26,6 +38,7 @@ const parseDateLocal = (s?: string) => {
 };
 
 interface Venda {
+  "ID Venda": number;
   "Data Venda": string;
   "Nome Cliente": string;
   "SKU Produto": string;
@@ -41,6 +54,7 @@ interface Venda {
 const Vendas = () => {
   const { data: vendas, isLoading, refresh } = useApiDataWithFilters<Venda>('Vendas');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [vendaParaExcluir, setVendaParaExcluir] = useState<Venda | null>(null);
 
   // Estado de paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -135,6 +149,31 @@ const Vendas = () => {
       totalQuantidade
     };
   }, [filteredData]);
+
+  // Função para excluir venda
+  const handleExcluir = async () => {
+    if (!vendaParaExcluir) return;
+
+    try {
+      const success = await excluirVenda(vendaParaExcluir["ID Venda"].toString());
+
+      if (success) {
+        toast.success("Venda excluída com sucesso!", {
+          description: "O estoque foi revertido automaticamente"
+        });
+        refresh();
+      } else {
+        toast.error("Erro ao excluir venda", {
+          description: "Tente novamente ou contate o suporte"
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao excluir venda:", error);
+      toast.error("Erro inesperado ao excluir venda");
+    } finally {
+      setVendaParaExcluir(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -268,6 +307,9 @@ const Vendas = () => {
               canal: venda['Canal'],
               pedidoUid: venda['Pedido UID'],
               imageUrl: venda.foto_url ? `${API_BASE_URL}${venda.foto_url}` : undefined,
+              // Adicionar dados extras para exclusão
+              vendaId: venda["ID Venda"],
+              vendaCompleta: venda
             }))}
             showThumbnails={true}
             showQuantity={true}
@@ -278,6 +320,7 @@ const Vendas = () => {
             showDate={true}
             showChannel={true}
             showOrderId={true}
+            onDelete={(item: any) => setVendaParaExcluir(item.vendaCompleta)}
           />
         </div>
       </div>
@@ -296,6 +339,41 @@ const Vendas = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* AlertDialog de Confirmação de Exclusão */}
+      <AlertDialog open={!!vendaParaExcluir} onOpenChange={(open) => !open && setVendaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão de Venda</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Tem certeza que deseja excluir esta venda?</p>
+                {vendaParaExcluir && (
+                  <div className="mt-4 p-4 bg-muted rounded-md text-sm space-y-1">
+                    <p><strong>Pedido:</strong> {vendaParaExcluir["Pedido UID"]}</p>
+                    <p><strong>Cliente:</strong> {vendaParaExcluir["Nome Cliente"]}</p>
+                    <p><strong>Produto:</strong> {vendaParaExcluir["Nome Produto"]}</p>
+                    <p><strong>Quantidade:</strong> {vendaParaExcluir["Quantidade Vendida"]}</p>
+                    <p><strong>Valor:</strong> {formatCurrency(vendaParaExcluir["Valor Total"])}</p>
+                  </div>
+                )}
+                <p className="mt-4 text-warning">
+                  ⚠️ O estoque do produto será revertido automaticamente.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluir}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir Venda
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };

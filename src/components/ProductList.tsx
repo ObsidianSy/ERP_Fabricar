@@ -1,8 +1,10 @@
 import React from 'react';
 import { ProductThumbnail } from '@/components/ProductThumbnail';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatQuantity } from '@/utils/formatters';
+import { Trash2 } from 'lucide-react';
 
 interface ProductListItem {
   sku?: string;
@@ -33,6 +35,7 @@ interface ProductListProps {
   showChannel?: boolean;
   showOrderId?: boolean;
   onItemClick?: (item: ProductListItem) => void;
+  onDelete?: (item: ProductListItem) => void;
 }
 
 export const ProductList: React.FC<ProductListProps> = ({
@@ -47,7 +50,8 @@ export const ProductList: React.FC<ProductListProps> = ({
   showDate = false,
   showChannel = false,
   showOrderId = false,
-  onItemClick
+  onItemClick,
+  onDelete
 }) => {
   if (!items || items.length === 0) {
     return (
@@ -85,7 +89,6 @@ export const ProductList: React.FC<ProductListProps> = ({
               "flex items-center gap-3 p-3 rounded-lg glass-card hover:bg-muted/50 transition-colors",
               onItemClick && "cursor-pointer hover:scale-[1.01]"
             )}
-            onClick={() => onItemClick?.(item)}
           >
             {/* Miniatura do produto */}
             {showThumbnails && (
@@ -98,7 +101,10 @@ export const ProductList: React.FC<ProductListProps> = ({
             )}
 
             {/* Informações do produto */}
-            <div className="flex-1 min-w-0 space-y-1">
+            <div
+              className="flex-1 min-w-0 space-y-1"
+              onClick={() => onItemClick?.(item)}
+            >
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
                   <h4 className="font-medium text-foreground truncate">
@@ -177,6 +183,22 @@ export const ProductList: React.FC<ProductListProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Botão de excluir (se onDelete estiver definido) */}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(item);
+                }}
+                title="Excluir venda"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         );
       })}

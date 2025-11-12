@@ -17,6 +17,8 @@ import authRouter from './routes/auth';
 import produtoFotosRouter from './routes/produto-fotos';
 import materiaPrimaFotosRouter from './routes/materia-prima-fotos';
 import usuariosRouter from './routes/usuarios';
+import permissoesRouter from './routes/permissoes';
+import financeiroRouter from './routes/financeiro';
 import { startCleanupTask } from './tasks/cleanupActivityLogs';
 
 // Carrega variáveis de ambiente
@@ -61,11 +63,7 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' })); // Parser JSON
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware de autenticação (extrai usuário do token JWT)
-import { authMiddleware } from './middleware/authMiddleware';
-app.use(authMiddleware);
-
-// Rota de health check
+// Rota de health check (antes de qualquer middleware que faça query)
 app.get('/health', (req: Request, res: Response) => {
     res.json({
         status: 'ok',
@@ -74,9 +72,17 @@ app.get('/health', (req: Request, res: Response) => {
     });
 });
 
-// Rotas da API
+// Rotas públicas (SEM authMiddleware)
 app.use('/api/auth', authRouter);
+
+// Middleware de autenticação (só aplica nas rotas protegidas abaixo)
+import { authMiddleware } from './middleware/authMiddleware';
+app.use(authMiddleware);
+
+// Rotas protegidas da API
 app.use('/api/usuarios', usuariosRouter);
+app.use('/api/permissoes', permissoesRouter);
+app.use('/api/financeiro', financeiroRouter); // ✅ Sistema Financeiro
 app.use('/api/clientes', clientesRouter);
 app.use('/api/vendas', vendasRouter);
 app.use('/api/pagamentos', pagamentosRouter);

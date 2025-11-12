@@ -22,16 +22,30 @@ export default function Login() {
         e.preventDefault();
         setLoading(true);
 
+        console.log('🔐 Estado atual:', {
+            emailState: email,
+            senhaState: senha,
+            emailLength: email?.length,
+            senhaLength: senha?.length
+        });
+
+        const payload = { email, senha };
+        console.log('📤 Payload sendo enviado:', payload);
+        console.log('📤 Payload stringified:', JSON.stringify(payload));
+
         try {
             const response = await fetch(getApiUrl('/api/auth/login'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, senha }),
+                body: JSON.stringify(payload),
             });
 
+            console.log('📥 Response status:', response.status);
+
             const data = await response.json();
+            console.log('📦 Response data:', data);
 
             if (!response.ok) {
                 throw new Error(data.error || 'Erro ao fazer login');

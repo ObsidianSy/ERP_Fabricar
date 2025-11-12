@@ -16,7 +16,9 @@ import {
   PackageX,
   Shield,
   Moon,
-  Sun
+  Sun,
+  CreditCard,
+  TrendingUp
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/contexts/AuthContext"
@@ -48,6 +50,7 @@ interface NavItem {
   url: string;
   icon: any;
   adminOnly?: boolean;
+  permissao?: string; // Chave da permissão necessária
 }
 
 const data = {
@@ -61,70 +64,108 @@ const data = {
       title: "Dashboard",
       url: "/",
       icon: Factory,
+      permissao: "dashboard.acessar",
     },
     {
       title: "Estoque",
       url: "/estoque",
       icon: Package,
+      permissao: "estoque.visualizar",
     },
     {
       title: "Vendas",
       url: "/vendas",
       icon: ShoppingCart,
+      permissao: "vendas.visualizar",
     },
     {
       title: "Clientes",
       url: "/clientes",
       icon: Users,
+      permissao: "clientes.visualizar",
     },
     {
       title: "Pagamentos",
       url: "/pagamentos",
       icon: Wallet,
+      permissao: "pagamentos.visualizar",
     },
     {
       title: "Devoluções",
       url: "/devolucoes",
       icon: PackageX,
+      permissao: "devolucoes.visualizar",
     },
     {
       title: "Receitas",
       url: "/receita-produto",
       icon: Settings,
+      permissao: "receitas.visualizar",
     },
     {
       title: "Relatórios",
       url: "/relatorios",
       icon: BarChart2,
+      permissao: "relatorios.visualizar",
     },
     {
       title: "Import Planilha",
       url: "/import-planilha",
       icon: Package,
+      permissao: "import.planilha",
     },
     {
       title: "Import Planilha Full",
       url: "/import-planilha-full",
       icon: Package,
+      permissao: "import.planilha_full",
     },
     {
       title: "FULL Envios",
       url: "/full-envios",
       icon: Truck,
+      permissao: "envios.visualizar",
     },
     {
       title: "Logs de Atividade",
       url: "/activity-logs",
       icon: Activity,
-      adminOnly: true, // Apenas administradores
+      adminOnly: true,
+      permissao: "logs.visualizar",
     },
-  ],
+  ] as NavItem[],
+  navFinanceiro: [
+    {
+      title: "Contas",
+      url: "/financeiro/contas",
+      icon: Wallet,
+      permissao: "financeiro.visualizar",
+    },
+    {
+      title: "Cartões",
+      url: "/financeiro/cartoes",
+      icon: CreditCard,
+      permissao: "financeiro.visualizar",
+    },
+    {
+      title: "Transações",
+      url: "/financeiro/transacoes",
+      icon: TrendingUp,
+      permissao: "financeiro.visualizar",
+    },
+    {
+      title: "Faturas",
+      url: "/financeiro/faturas",
+      icon: CreditCard,
+      permissao: "financeiro.visualizar",
+    },
+  ] as NavItem[],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const location = useLocation()
-  const { usuario, logout, isAdmin } = useAuth()
+  const { usuario, logout, isAdmin, hasPermission } = useAuth()
   const { theme, setTheme } = useTheme()
 
   const isActive = (url: string) => {
@@ -137,6 +178,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark")
   }
+
+  // Filtrar itens da navbar baseado em permissões
+  const navItemsFiltrados = data.navMain.filter((item) => {
+    // Se é adminOnly, verificar se é admin
+    if (item.adminOnly && !isAdmin()) {
+      return false;
+    }
+
+    // Se tem permissão específica, verificar se usuário tem
+    if (item.permissao && !hasPermission(item.permissao)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Filtrar itens do financeiro baseado em permissões
+  const navFinanceiroFiltrados = data.navFinanceiro.filter((item) => {
+    // Se é adminOnly, verificar se é admin
+    if (item.adminOnly && !isAdmin()) {
+      return false;
+    }
+
+    // Se tem permissão específica, verificar se usuário tem
+    if (item.permissao && !hasPermission(item.permissao)) {
+      return false;
+    }
+
+    return true;
+  });
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -161,9 +232,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain
-                .filter((item) => !item.adminOnly || isAdmin())
-                .map((item) => (
+              {navItemsFiltrados.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={item.title}
+                    isActive={isActive(item.url)}
+                    className="transition-all hover:bg-accent/60"
+                  >
+                    <NavLink to={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Grupo Financeiro separado */}
+        {navFinanceiroFiltrados.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Financeiro</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navFinanceiroFiltrados.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
@@ -178,9 +272,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -238,12 +333,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   Perfil
                 </DropdownMenuItem>
                 {isAdmin() && (
-                  <DropdownMenuItem className="cursor-pointer" asChild>
-                    <NavLink to="/usuarios">
-                      <Shield />
-                      Gerenciar Usuários
-                    </NavLink>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem className="cursor-pointer" asChild>
+                      <NavLink to="/usuarios">
+                        <Shield />
+                        Gerenciar Usuários
+                      </NavLink>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer" asChild>
+                      <NavLink to="/admin/permissoes">
+                        <Shield />
+                        Gerenciar Permissões
+                      </NavLink>
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuItem className="cursor-pointer">
                   <Settings />

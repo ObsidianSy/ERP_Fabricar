@@ -104,25 +104,25 @@ export function ModernDataTable<T extends Record<string, any>>({
       filtered = [...filtered].sort((a, b) => {
         const aValue = a[sortColumn];
         const bValue = b[sortColumn];
-        
+
         // Handle different data types
         if (typeof aValue === "number" && typeof bValue === "number") {
           return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
         }
-        
+
         // Check for date-like values (string or Date)
         const aDate = parseDateLocal(aValue);
         const bDate = parseDateLocal(bValue);
         if (aDate && bDate) {
-          return sortDirection === "asc" 
+          return sortDirection === "asc"
             ? aDate.getTime() - bDate.getTime()
             : bDate.getTime() - aDate.getTime();
         }
-        
+
         // String comparison
         const aStr = String(aValue).toLowerCase();
         const bStr = String(bValue).toLowerCase();
-        
+
         if (sortDirection === "asc") {
           return aStr.localeCompare(bStr);
         } else {
@@ -150,7 +150,7 @@ export function ModernDataTable<T extends Record<string, any>>({
         if (prev === "desc") return null;
         return "asc";
       });
-      
+
       if (sortDirection === "desc") {
         setSortColumn(null);
       }
@@ -186,22 +186,22 @@ export function ModernDataTable<T extends Record<string, any>>({
             />
           </div>
         )}
-        
+
         {getFilterableColumns().length > 0 && (
           <div className="flex gap-2">
             {getFilterableColumns().map((column) => (
               <Select
                 key={String(column.key)}
-                value={filters[String(column.key)] || ""}
+                value={filters[String(column.key)] || "all"}
                 onValueChange={(value) =>
-                  setFilters(prev => ({ ...prev, [String(column.key)]: value }))
+                  setFilters(prev => ({ ...prev, [String(column.key)]: value === "all" ? "" : value }))
                 }
               >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder={`Filtrar ${column.label}`} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {Array.from(
                     new Set(data.map(item => String(item[column.key])))
                   ).map((value) => (
@@ -259,7 +259,7 @@ export function ModernDataTable<T extends Record<string, any>>({
                 <TableRow key={index} className="hover:bg-muted/50">
                   {columns.map((column) => (
                     <TableCell key={String(column.key)} className={column.className}>
-                      {column.render 
+                      {column.render
                         ? column.render(item[column.key], item)
                         : String(item[column.key] || "")
                       }

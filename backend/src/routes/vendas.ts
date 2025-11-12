@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
+import { enviarVendaWebhook } from '../utils/webhook';
 
 export const vendasRouter = Router();
 
@@ -117,6 +118,20 @@ vendasRouter.post('/', async (req: Request, res: Response) => {
 
         await client.query('COMMIT');
 
+        // Montar payload detalhado para o webhook
+        const payloadWebhook = {
+            pedido_uid: pedido_uid || `MANUAL-${Date.now()}`,
+            data_venda,
+            nome_cliente,
+            canal: canal || 'MANUAL',
+            client_id,
+            import_id: import_id || null,
+            items: itemsJson // já está pronto e validado
+        };
+
+        // Enviar webhook de forma assíncrona (não trava resposta)
+        enviarVendaWebhook(payloadWebhook);
+
         res.status(201).json({
             message: 'Venda criada com sucesso via processar_pedido',
             processamento: result.rows
@@ -130,23 +145,84 @@ vendasRouter.post('/', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE - Excluir venda
+// DELETE - Excluir venda (com reversão de estoque)
 vendasRouter.delete('/:id', async (req: Request, res: Response) => {
+    const client = await pool.connect();
+
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
-            'DELETE FROM obsidian.vendas WHERE venda_id = $1 RETURNING *', // ✅ Corrigido: usar venda_id
+        await client.query('BEGIN');
+
+        // 1. Buscar dados da venda antes de excluir
+        const vendaResult = await client.query(
+            'SELECT venda_id, sku_produto, quantidade_vendida, fulfillment_ext, pedido_uid, canal FROM obsidian.vendas WHERE venda_id = $1',
             [id]
         );
 
-        if (result.rows.length === 0) {
+        if (vendaResult.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Venda não encontrada' });
         }
 
-        res.json({ message: 'Venda excluída com sucesso' });
+        const venda = vendaResult.rows[0];
+
+        // 2. Reverter estoque APENAS se não for fulfillment externo
+        if (!venda.fulfillment_ext) {
+            // Buscar componentes expandidos (kits) ou produto simples
+            const componentesResult = await client.query(`
+                SELECT sku_baixa, qtd_baixa
+                FROM obsidian.v_vendas_expandidas_json
+                WHERE venda_id = $1
+            `, [id]);
+
+            // 3. Para cada componente, adicionar de volta ao estoque (inverter movimento)
+            for (const comp of componentesResult.rows) {
+                // Registrar movimento POSITIVO (estorna a saída)
+                await client.query(`
+                    INSERT INTO obsidian.estoque_movimentos (sku, tipo, quantidade, origem_tabela, origem_id, observacao)
+                    VALUES ($1, 'estorno_venda', $2, 'vendas', $3, $4)
+                `, [
+                    comp.sku_baixa,
+                    comp.qtd_baixa, // POSITIVO - devolver ao estoque
+                    venda.venda_id.toString(),
+                    `Exclusão venda - Pedido ${venda.pedido_uid || '-'} / Canal ${venda.canal || '-'}`
+                ]);
+
+                // Atualizar quantidade_atual no produto
+                await client.query(`
+                    UPDATE obsidian.produtos
+                    SET quantidade_atual = quantidade_atual + $1,
+                        atualizado_em = now()
+                    WHERE sku = $2
+                `, [comp.qtd_baixa, comp.sku_baixa]);
+            }
+
+            // 4. Deletar movimentos antigos da venda (opcional - manter histórico)
+            // Comentado para preservar auditoria:
+            // await client.query(
+            //     "DELETE FROM obsidian.estoque_movimentos WHERE origem_tabela = 'vendas' AND origem_id = $1",
+            //     [id]
+            // );
+        }
+
+        // 5. Excluir a venda
+        await client.query(
+            'DELETE FROM obsidian.vendas WHERE venda_id = $1',
+            [id]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+            message: 'Venda excluída com sucesso',
+            estoque_revertido: !venda.fulfillment_ext
+        });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Erro ao excluir venda:', error);
         res.status(500).json({ error: 'Erro ao excluir venda' });
+    } finally {
+        client.release();
     }
 });

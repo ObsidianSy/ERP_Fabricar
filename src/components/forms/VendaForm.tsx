@@ -124,13 +124,13 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
       return;
     }
 
-    // Verificar estoque disponível
+    // Verificar estoque disponível e avisar se ficará negativo
     const produto = produtos.find(p => p["SKU"] === currentItem["SKU Produto"]);
     if (produto && produto["Quantidade Atual"] < currentItem["Quantidade Vendida"]) {
-      toast.error("Estoque insuficiente", {
-        description: `Disponível: ${produto["Quantidade Atual"]} unidades`
+      toast.warning("Estoque ficará negativo", {
+        description: `Disponível: ${produto["Quantidade Atual"]} | Venda: ${currentItem["Quantidade Vendida"]} | Após venda: ${produto["Quantidade Atual"] - currentItem["Quantidade Vendida"]}`
       });
-      return;
+      // Não bloqueia mais - permite venda com estoque negativo (backorder)
     }
 
     // Verificar se produto já foi adicionado - se sim, somar quantidade
@@ -140,10 +140,10 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
       const produto = produtos.find(p => p["SKU"] === currentItem["SKU Produto"]);
 
       if (produto && produto["Quantidade Atual"] < novaQuantidade) {
-        toast.error("Estoque insuficiente", {
-          description: `Disponível: ${produto["Quantidade Atual"]} unidades`
+        toast.warning("Estoque ficará negativo", {
+          description: `Disponível: ${produto["Quantidade Atual"]} | Total venda: ${novaQuantidade} | Após venda: ${produto["Quantidade Atual"] - novaQuantidade}`
         });
-        return;
+        // Não bloqueia mais - permite venda com estoque negativo (backorder)
       }
 
       setItems(prev => prev.map((item, i) =>
@@ -179,10 +179,10 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
     const produto = produtos.find(p => p["SKU"] === item["SKU Produto"]);
 
     if (produto && produto["Quantidade Atual"] < novaQuantidade) {
-      toast.error("Estoque insuficiente", {
-        description: `Disponível: ${produto["Quantidade Atual"]} unidades`
+      toast.warning("Estoque ficará negativo", {
+        description: `Disponível: ${produto["Quantidade Atual"]} | Nova quantidade: ${novaQuantidade} | Após venda: ${produto["Quantidade Atual"] - novaQuantidade}`
       });
-      return;
+      // Não bloqueia mais - permite venda com estoque negativo (backorder)
     }
 
     setItems(prev => prev.map((item, i) =>
@@ -207,31 +207,38 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
       handleSelectProduto(produto["SKU"]);
       setCodigoBarras("");
 
-      // Auto-adicionar se tiver estoque
-      if (produto["Quantidade Atual"] > 0) {
-        const itemExistenteIndex = items.findIndex(item => item["SKU Produto"] === produto["SKU"]);
-        if (itemExistenteIndex !== -1) {
-          const novaQuantidade = items[itemExistenteIndex]["Quantidade Vendida"] + 1;
-          if (produto["Quantidade Atual"] >= novaQuantidade) {
-            setItems(prev => prev.map((item, i) =>
-              i === itemExistenteIndex ? { ...item, "Quantidade Vendida": novaQuantidade } : item
-            ));
-            toast.success(`Quantidade atualizada para ${novaQuantidade}`);
-          } else {
-            toast.error("Estoque insuficiente");
-          }
-        } else {
-          const newItem = {
-            "SKU Produto": produto["SKU"],
-            "Nome Produto": produto["Nome Produto"],
-            "Quantidade Vendida": 1,
-            "Preço Unitário": parseFloat(produto["Preço Unitário"]) || 0
-          };
-          setItems(prev => [...prev, newItem]);
-          toast.success(`${produto["Nome Produto"]} adicionado à venda`);
+      // Auto-adicionar (permite estoque negativo agora)
+      const itemExistenteIndex = items.findIndex(item => item["SKU Produto"] === produto["SKU"]);
+      if (itemExistenteIndex !== -1) {
+        const novaQuantidade = items[itemExistenteIndex]["Quantidade Vendida"] + 1;
+
+        // Avisar se estoque ficará negativo, mas permite adicionar
+        if (produto["Quantidade Atual"] < novaQuantidade) {
+          toast.warning("Estoque ficará negativo", {
+            description: `Disponível: ${produto["Quantidade Atual"]} | Total: ${novaQuantidade}`
+          });
         }
+
+        setItems(prev => prev.map((item, i) =>
+          i === itemExistenteIndex ? { ...item, "Quantidade Vendida": novaQuantidade } : item
+        ));
+        toast.success(`Quantidade atualizada para ${novaQuantidade}`);
       } else {
-        toast.warning("Produto sem estoque disponível");
+        // Avisar se produto sem estoque, mas permite adicionar
+        if (produto["Quantidade Atual"] <= 0) {
+          toast.warning("Produto sem estoque, ficará negativo após venda", {
+            description: `Estoque atual: ${produto["Quantidade Atual"]}`
+          });
+        }
+
+        const newItem = {
+          "SKU Produto": produto["SKU"],
+          "Nome Produto": produto["Nome Produto"],
+          "Quantidade Vendida": 1,
+          "Preço Unitário": parseFloat(produto["Preço Unitário"]) || 0
+        };
+        setItems(prev => [...prev, newItem]);
+        toast.success(`${produto["Nome Produto"]} adicionado à venda`);
       }
     } else {
       toast.error("Produto não encontrado", {
@@ -277,28 +284,38 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
             setCodigoBarras(decodedText);
             toast.success(`Produto escaneado: ${produto["Nome Produto"]}`);
 
-            if (produto["Quantidade Atual"] > 0) {
-              const itemExistenteIndex = items.findIndex(item => item["SKU Produto"] === produto["SKU"]);
-              if (itemExistenteIndex !== -1) {
-                const novaQuantidade = items[itemExistenteIndex]["Quantidade Vendida"] + 1;
-                if (produto["Quantidade Atual"] >= novaQuantidade) {
-                  setItems(prev => prev.map((item, i) =>
-                    i === itemExistenteIndex ? { ...item, "Quantidade Vendida": novaQuantidade } : item
-                  ));
-                  toast.success(`Quantidade atualizada para ${novaQuantidade}`);
-                } else {
-                  toast.error("Estoque insuficiente");
-                }
-              } else {
-                const newItem = {
-                  "SKU Produto": produto["SKU"],
-                  "Nome Produto": produto["Nome Produto"],
-                  "Quantidade Vendida": 1,
-                  "Preço Unitário": parseFloat(produto["Preço Unitário"]) || 0
-                };
-                setItems(prev => [...prev, newItem]);
-                toast.success("Item adicionado automaticamente à venda");
+            // Auto-adicionar (permite estoque negativo agora)
+            const itemExistenteIndex = items.findIndex(item => item["SKU Produto"] === produto["SKU"]);
+            if (itemExistenteIndex !== -1) {
+              const novaQuantidade = items[itemExistenteIndex]["Quantidade Vendida"] + 1;
+
+              // Avisar se estoque ficará negativo, mas permite adicionar
+              if (produto["Quantidade Atual"] < novaQuantidade) {
+                toast.warning("Estoque ficará negativo", {
+                  description: `Disponível: ${produto["Quantidade Atual"]} | Total: ${novaQuantidade}`
+                });
               }
+
+              setItems(prev => prev.map((item, i) =>
+                i === itemExistenteIndex ? { ...item, "Quantidade Vendida": novaQuantidade } : item
+              ));
+              toast.success(`Quantidade atualizada para ${novaQuantidade}`);
+            } else {
+              // Avisar se produto sem estoque, mas permite adicionar
+              if (produto["Quantidade Atual"] <= 0) {
+                toast.warning("Produto sem estoque, ficará negativo após venda", {
+                  description: `Estoque atual: ${produto["Quantidade Atual"]}`
+                });
+              }
+
+              const newItem = {
+                "SKU Produto": produto["SKU"],
+                "Nome Produto": produto["Nome Produto"],
+                "Quantidade Vendida": 1,
+                "Preço Unitário": parseFloat(produto["Preço Unitário"]) || 0
+              };
+              setItems(prev => [...prev, newItem]);
+              toast.success("Item adicionado automaticamente à venda");
             }
           } else {
             toast.error("Produto não encontrado no estoque");
@@ -344,11 +361,22 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
         return;
       }
 
+      // Buscar o cliente selecionado para obter o ID interno (obrigatório pelo backend)
+      const clienteSelecionado = clientes.find(
+        (c) => c.Cliente === formData["Nome Cliente"]
+      );
+
+      if (!clienteSelecionado) {
+        toast.error("Cliente não encontrado. Recarregue a página e tente novamente.");
+        return;
+      }
+
       const vendaData: VendaData = {
         "ID Venda": gerarIdVenda(),
         "Data Venda": formData["Data Venda"],
         "Nome Cliente": formData["Nome Cliente"],
-        "items": items
+        "items": items,
+        "client_id": clienteSelecionado["ID Cliente"] // ID interno do cliente (bigint no Postgres)
       };
 
       const success = await criarVenda(vendaData);
@@ -485,24 +513,37 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
                         <CommandList className="max-h-72 overflow-y-auto" onWheelCapture={(e) => e.stopPropagation()}>
                           <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
                           <CommandGroup>
-                            {produtos.map((produto) => (
-                              <CommandItem
-                                key={produto["SKU"]}
-                                value={produto["SKU"]}
-                                onSelect={() => {
-                                  handleSelectProduto(produto["SKU"]);
-                                  setOpenProduto(false);
-                                }}
-                              >
-                                <Check
+                            {produtos.map((produto) => {
+                              const estoque = produto["Quantidade Atual"];
+                              const estoqueNegativo = estoque < 0;
+                              const estoqueBaixo = estoque >= 0 && estoque <= 5;
+
+                              return (
+                                <CommandItem
+                                  key={produto["SKU"]}
+                                  value={produto["SKU"]}
+                                  onSelect={() => {
+                                    handleSelectProduto(produto["SKU"]);
+                                    setOpenProduto(false);
+                                  }}
                                   className={cn(
-                                    "mr-2 h-4 w-4",
-                                    currentItem["SKU Produto"] === produto["SKU"] ? "opacity-100" : "opacity-0"
+                                    estoqueNegativo && "text-red-600 font-semibold",
+                                    estoqueBaixo && !estoqueNegativo && "text-orange-600"
                                   )}
-                                />
-                                {produto["SKU"]} (Estoque: {produto["Quantidade Atual"]})
-                              </CommandItem>
-                            ))}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      currentItem["SKU Produto"] === produto["SKU"] ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {produto["SKU"]} (Estoque: {estoque}
+                                  {estoqueNegativo && " ⚠️"}
+                                  {estoqueBaixo && !estoqueNegativo && " ⚡"}
+                                  )
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>

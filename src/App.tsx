@@ -28,7 +28,13 @@ import ActivityLogs from "./pages/ActivityLogs";
 import Devolucoes from "./pages/Devolucoes";
 import GerenciarFotos from "./pages/GerenciarFotos";
 import UserManagement from "./pages/UserManagement";
+import Permissoes from "./pages/admin/Permissoes";
 import Login from "./pages/Login";
+// Financeiro
+import Contas from "./pages/financeiro/Contas";
+import Cartoes from "./pages/financeiro/Cartoes";
+import Transacoes from "./pages/financeiro/Transacoes";
+import Faturas from "./pages/financeiro/Faturas";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,8 +93,15 @@ const App = () => (
                   <Route path="/activity-logs" element={<PrivateRoute><AdminRoute><ActivityLogs /></AdminRoute></PrivateRoute>} />
                   <Route path="/fotos-produtos" element={<PrivateRoute><GerenciarFotos /></PrivateRoute>} />
                   <Route path="/usuarios" element={<PrivateRoute><AdminRoute><UserManagement /></AdminRoute></PrivateRoute>} />
+                  <Route path="/admin/permissoes" element={<PrivateRoute><AdminRoute><Permissoes /></AdminRoute></PrivateRoute>} />
 
-                  {/* Rota 404 */}
+                  {/* Rotas Financeiro */}
+                  <Route path="/financeiro/contas" element={<PrivateRoute><Contas /></PrivateRoute>} />
+                  <Route path="/financeiro/cartoes" element={<PrivateRoute><Cartoes /></PrivateRoute>} />
+                  <Route path="/financeiro/transacoes" element={<PrivateRoute><Transacoes /></PrivateRoute>} />
+                  <Route path="/financeiro/faturas" element={<PrivateRoute><Faturas /></PrivateRoute>} />
+
+                  {/* 404 */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </AuthProvider>

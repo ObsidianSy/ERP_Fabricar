@@ -14,6 +14,7 @@ export interface VendaData {
   "Data Venda": string;
   "Nome Cliente": string;
   "items": VendaItem[];
+  "client_id"?: string; // ID interno do cliente (obrigatório no backend, opcional aqui para retrocompatibilidade)
 }
 
 export interface ClienteData {
@@ -219,6 +220,7 @@ const mapDataToApi = (data: any, sheetName: string): any => {
         data_venda: data['Data Venda'],
         id_cliente: data['ID Cliente'],
         nome_cliente: data['Nome Cliente'],
+        client_id: data['client_id'], // ID interno do cliente (obrigatório pelo backend - bigint)
         items: data['items']?.map((item: any) => ({
           sku_produto: item['SKU Produto'],
           nome_produto: item['Nome Produto'],
@@ -392,6 +394,29 @@ export const criarVenda = async (venda: VendaData): Promise<boolean> => {
     action: "create",
     data: venda
   });
+};
+
+export const excluirVenda = async (vendaId: string): Promise<boolean> => {
+  try {
+    const baseUrl = getApiUrl();
+    const response = await fetch(`${baseUrl}/vendas/${vendaId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro ao excluir venda:', response.status, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erro ao excluir venda:', error);
+    return false;
+  }
 };
 
 // Clientes
