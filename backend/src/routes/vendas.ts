@@ -129,8 +129,13 @@ vendasRouter.post('/', async (req: Request, res: Response) => {
             items: itemsJson // já está pronto e validado
         };
 
-        // Enviar webhook de forma assíncrona (não trava resposta)
-        enviarVendaWebhook(payloadWebhook);
+        // Enviar webhook SOMENTE se o cliente for "Obsidian Ecom"
+        if (nome_cliente.toLowerCase().trim() === 'obsidian ecom') {
+            enviarVendaWebhook(payloadWebhook);
+            console.log('✅ [Webhook] Venda do cliente "Obsidian Ecom" enviada ao webhook');
+        } else {
+            console.log(`⏭️  [Webhook] Venda ignorada - Cliente: "${nome_cliente}" (não é "Obsidian Ecom")`);
+        }
 
         res.status(201).json({
             message: 'Venda criada com sucesso via processar_pedido',
