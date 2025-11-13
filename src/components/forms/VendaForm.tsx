@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Scan, Minus, Plus as PlusIcon, Edit3 } from "lucide-react";
+import { Check, ChevronsUpDown, Scan, Minus, Plus, Edit3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Trash2, Plus } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   criarVenda,
   consultarClientes,
@@ -58,6 +59,7 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
   const [openProduto, setOpenProduto] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [isClienteDrop, setIsClienteDrop] = useState(false); // Flag para cliente DROP (+R$5 por produto)
   const [codigoBarras, setCodigoBarras] = useState("");
   const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
 
@@ -340,9 +342,11 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
   };
 
   const calcularTotal = () => {
-    return items.reduce((total, item) =>
-      total + (item["Quantidade Vendida"] * item["Preço Unitário"]), 0
-    );
+    return items.reduce((total, item) => {
+      // Se cliente DROP, adiciona R$5 no preço unitário de cada produto
+      const precoAjustado = item["Preço Unitário"] + (isClienteDrop ? 5 : 0);
+      return total + (item["Quantidade Vendida"] * precoAjustado);
+    }, 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -371,18 +375,24 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
         return;
       }
 
+      // Aplicar markup DROP nos preços antes de enviar (se habilitado)
+      const itemsAjustados = items.map(item => ({
+        ...item,
+        "Preço Unitário": item["Preço Unitário"] + (isClienteDrop ? 5 : 0)
+      }));
+
       const vendaData: VendaData = {
         "ID Venda": gerarIdVenda(),
         "Data Venda": formData["Data Venda"],
         "Nome Cliente": formData["Nome Cliente"],
-        "items": items,
+        "items": itemsAjustados, // Envia com preços ajustados se DROP
         "client_id": clienteSelecionado["ID Cliente"] // ID interno do cliente (bigint no Postgres)
       };
 
       const success = await criarVenda(vendaData);
 
       if (success) {
-        toast.success("Venda registrada com sucesso!");
+        toast.success(`Venda registrada com sucesso!${isClienteDrop ? ' (Cliente DROP)' : ''}`);
 
         // Limpar formulário
         setFormData({
@@ -396,6 +406,7 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
           "Quantidade Vendida": 1,
           "Preço Unitário": 0
         });
+        setIsClienteDrop(false); // Resetar flag DROP
 
         onSuccess?.();
       } else {
@@ -444,6 +455,22 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Flag Cliente DROP */}
+          <div className="flex items-center justify-between p-3 bg-muted/10 border border-border/30 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={isClienteDrop}
+                onCheckedChange={(val) => setIsClienteDrop(Boolean(val))}
+                aria-label="Cliente DROP"
+              />
+              <div>
+                <div className="text-sm font-medium">Cliente DROP</div>
+                <div className="text-xs text-muted-foreground">Aplica <span className="font-semibold">R$ 5,00</span> ao preço unitário de cada produto</div>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-blue-600 border-blue-200">+R$ 5 / item</Badge>
           </div>
 
           {/* Adicionar itens */}
@@ -644,7 +671,7 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
                             size="sm"
                             onClick={() => handleEditQuantity(index, item["Quantidade Vendida"] + 1)}
                           >
-                            <PlusIcon className="w-3 h-3" />
+                            <Plus className="w-3 h-3" />
                           </Button>
 
                           <Button
@@ -657,8 +684,15 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>R$ {item["Preço Unitário"].toFixed(2)}</TableCell>
-                      <TableCell>R$ {(item["Quantidade Vendida"] * item["Preço Unitário"]).toFixed(2)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground line-through">R$ {item["Preço Unitário"].toFixed(2)}</span>
+                          <Badge variant="secondary" className="text-white bg-blue-600 border-blue-600">R$ {(item["Preço Unitário"] + (isClienteDrop ? 5 : 0)).toFixed(2)}</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">R$ {((item["Quantidade Vendida"] * (item["Preço Unitário"] + (isClienteDrop ? 5 : 0)))).toFixed(2)}</span>
+                      </TableCell>
                       <TableCell>
                         <Button
                           type="button"
