@@ -19,6 +19,87 @@ materiaPrimaRouter.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// POST - Registrar entrada de matéria-prima
+materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+        const { sku_mp, quantidade, observacao, origem_id } = req.body;
+
+        if (!sku_mp || quantidade === undefined) {
+            return res.status(400).json({ error: 'SKU (sku_mp) e quantidade são obrigatórios' });
+        }
+
+        const q = Number(quantidade);
+        if (isNaN(q) || q <= 0) {
+            return res.status(400).json({ error: 'Quantidade deve ser número maior que zero' });
+        }
+
+        await client.query('BEGIN');
+
+        // Verificar se matéria-prima existe
+        const mpCheck = await client.query(
+            'SELECT sku_mp, nome, quantidade_atual FROM obsidian.materia_prima WHERE sku_mp = $1',
+            [sku_mp]
+        );
+
+        if (mpCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Matéria-prima não encontrada' });
+        }
+
+        const saldoAnterior = Number(mpCheck.rows[0].quantidade_atual || 0);
+
+        // Atualizar quantidade
+        const updateResult = await client.query(
+            `UPDATE obsidian.materia_prima
+             SET quantidade_atual = quantidade_atual + $1,
+                 atualizado_em = NOW()
+             WHERE sku_mp = $2
+             RETURNING sku_mp, nome, quantidade_atual`,
+            [q, sku_mp]
+        );
+
+        // Registrar movimento de estoque (usar sku_mp como sku)
+        await client.query(
+            `INSERT INTO obsidian.estoque_movimentos (sku, tipo, quantidade, origem_tabela, origem_id, observacao)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [sku_mp, 'entrada_mp', q, 'materia_prima', origem_id || null, observacao || null]
+        );
+
+        await client.query('COMMIT');
+
+        // Log de atividade
+        await logActivity({
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            action: 'entrada_materia_prima',
+            entity_type: 'materia_prima',
+            entity_id: sku_mp,
+            details: {
+                quantidade_adicionada: q,
+                saldo_anterior: saldoAnterior,
+                saldo_atual: Number(updateResult.rows[0].quantidade_atual)
+            }
+        });
+
+        res.json({
+            success: true,
+            message: 'Entrada de matéria-prima registrada com sucesso',
+            sku_mp,
+            quantidade: q,
+            saldo_anterior: saldoAnterior,
+            saldo_atual: Number(updateResult.rows[0].quantidade_atual)
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao registrar entrada de matéria-prima:', error);
+        res.status(500).json({ error: 'Erro ao registrar entrada de matéria-prima' });
+    } finally {
+        client.release();
+    }
+});
+
 // GET - Buscar matéria-prima por SKU
 materiaPrimaRouter.get('/:sku', async (req: Request, res: Response) => {
     try {

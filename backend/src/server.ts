@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
-import path from 'path';
+import path from 'node:path';
 import { clientesRouter } from './routes/clientes';
 import { vendasRouter } from './routes/vendas';
 import { pagamentosRouter } from './routes/pagamentos';
@@ -25,7 +25,7 @@ import { startCleanupTask } from './tasks/cleanupActivityLogs';
 dotenv.config();
 
 const app: Express = express();
-const PORT = parseInt(process.env.PORT || '3001');
+const PORT = Number.parseInt(process.env.PORT || '3001');
 
 // Configuração de CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
@@ -43,12 +43,8 @@ app.use(cors({
             return callback(null, true);
         }
 
-        // Verifica se a origin está na lista permitida
-        if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
-            callback(null, true);
-        } else {
-            callback(null, true); // API pública
-        }
+        // API pública - permite todas as origens em produção
+        callback(null, true);
     },
     credentials: true
 }));
@@ -132,8 +128,8 @@ app.use(express.static(publicPath, {
     }
 }));
 
-// SPA fallback
-app.get('*', (req: Request, res: Response, next: NextFunction) => {
+// SPA fallback - catch all routes not starting with /api/
+app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Rota não encontrada' });
     }
@@ -171,7 +167,7 @@ server.on('listening', () => {
     }
 });
 
-server.on('error', (error: any) => {
+server.on('error', (error: NodeJS.ErrnoException) => {
     console.error('❌ Erro ao iniciar servidor:', error);
     if (error.code === 'EADDRINUSE') {
         console.error(`⚠️  Porta ${PORT} já está em uso!`);

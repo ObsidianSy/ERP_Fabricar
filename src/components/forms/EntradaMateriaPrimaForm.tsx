@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { consultarDados } from "@/services/n8nIntegration";
 
 interface MateriaPrimaOption {
-  "SKU Matéria-Prima": string;
-  "Nome Matéria-Prima": string;
+  "SKU MatériaPrima": string;
+  "Nome MatériaPrima": string;
 }
 
 interface EntradaMateriaPrimaFormProps {
@@ -34,24 +34,34 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
   const carregarMateriasPrimas = async () => {
     try {
       const dados = await consultarDados("Estoque_MateriaPrima");
-      console.log("Dados brutos recebidos:", dados);
-      
-      // Filter and remove duplicates by SKU
-      const dadosFiltrados = dados.filter(item => item["SKU Matéria-Prima"] && item["Nome Matéria-Prima"]);
-      console.log("Dados filtrados:", dadosFiltrados);
+
+      // Tenta descobrir o campo correto de SKU automaticamente
+      let campoSKU = null;
+      let campoNome = null;
+      if (Array.isArray(dados) && dados.length > 0) {
+        const chaves = Object.keys(dados[0]);
+        campoSKU = chaves.find(c => c.toLowerCase().includes('sku'));
+        campoNome = chaves.find(c => c.toLowerCase().includes('nome'));
+      }
+
+      // Filtro dinâmico baseado nos campos detectados
+      let dadosFiltrados = [];
+      if (campoSKU && campoNome) {
+        dadosFiltrados = dados.filter(item => item[campoSKU] && item[campoNome]);
+      }
       
       // Remove duplicates by SKU
       const skusUnicos = new Map();
-      dadosFiltrados.forEach(item => {
-        const sku = item["SKU Matéria-Prima"];
-        if (!skusUnicos.has(sku)) {
-          skusUnicos.set(sku, item);
+      if (campoSKU && campoNome) {
+        for (const item of dadosFiltrados) {
+          const sku = item[campoSKU];
+          if (!skusUnicos.has(sku)) {
+            skusUnicos.set(sku, item);
+          }
         }
-      });
-      
+      }
       const materiasUnicas = Array.from(skusUnicos.values());
       console.log("Matérias-primas únicas:", materiasUnicas);
-      
       setMateriasPrimas(materiasUnicas);
     } catch (error) {
       console.error("Erro ao carregar matérias-primas:", error);
@@ -60,11 +70,11 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
   };
 
   const handleSKUChange = (sku: string) => {
-    const materiaPrima = materiasPrimas.find(mp => mp["SKU Matéria-Prima"] === sku);
+    const materiaPrima = materiasPrimas.find(mp => mp["SKU MatériaPrima"] === sku);
     setFormData(prev => ({
       ...prev,
       skuMateriaPrima: sku,
-      nomeMateriaPrima: materiaPrima?.["Nome Matéria-Prima"] || ""
+      nomeMateriaPrima: materiaPrima?.["Nome MatériaPrima"] || ""
     }));
   };
 
@@ -83,8 +93,8 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
       return;
     }
 
-    const quantidade = parseInt(formData.quantidadeAdicionar);
-    if (isNaN(quantidade) || quantidade <= 0) {
+    const quantidade = Number.parseInt(formData.quantidadeAdicionar);
+    if (Number.isNaN(quantidade) || quantidade <= 0) {
       toast.error("Quantidade deve ser um número maior que zero");
       return;
     }
@@ -92,44 +102,34 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        sheetName: "Estoque_MateriaPrima",
-        action: "entrada",
-        data: {
-          "SKU MatériaPrima": formData.skuMateriaPrima,
-          "Quantidade a Adicionar": quantidade,
-          Observação: formData.observacao || ""
-        }
+      // Post direto para o backend local: /api/materia-prima/entrada
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const url = `${apiUrl}/api/materia-prima/entrada`;
+
+      const body = {
+        sku_mp: formData.skuMateriaPrima,
+        quantidade,
+        observacao: formData.observacao || ''
       };
 
-      const response = await fetch(
-        import.meta.env.DEV 
-          ? "http://localhost:5678/webhook/write"
-          : "https://docker-n8n-webhook.q4xusi.easypanel.host/webhook/w56f5d8c2h4dcd6g1c",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
 
       if (response.ok) {
-        toast.success("Entrada de matéria-prima registrada com sucesso!");
-        setFormData({
-          skuMateriaPrima: "",
-          nomeMateriaPrima: "",
-          quantidadeAdicionar: "",
-          observacao: ""
-        });
+        toast.success('Entrada de matéria-prima registrada com sucesso!');
+        setFormData({ skuMateriaPrima: '', nomeMateriaPrima: '', quantidadeAdicionar: '', observacao: '' });
         onSuccess?.();
       } else {
-        throw new Error("Erro na resposta do servidor");
+        const errText = await response.text();
+        console.error('Erro na resposta do servidor:', response.status, errText);
+        throw new Error('Erro na resposta do servidor');
       }
     } catch (error) {
-      console.error("Erro ao registrar entrada:", error);
-      toast.error("Erro ao registrar entrada de matéria-prima");
+      console.error('Erro ao registrar entrada:', error);
+      toast.error('Erro ao registrar entrada de matéria-prima');
     } finally {
       setIsSubmitting(false);
     }
@@ -150,8 +150,8 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
             </SelectTrigger>
             <SelectContent>
               {materiasPrimas.map((materiaPrima) => (
-                <SelectItem key={materiaPrima["SKU Matéria-Prima"]} value={materiaPrima["SKU Matéria-Prima"]}>
-                  {materiaPrima["SKU Matéria-Prima"]} - {materiaPrima["Nome Matéria-Prima"]}
+                <SelectItem key={materiaPrima["SKU MatériaPrima"]} value={materiaPrima["SKU MatériaPrima"]}>
+                  {materiaPrima["SKU MatériaPrima"]} - {materiaPrima["Nome MatériaPrima"]}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1,11 +1,11 @@
-﻿import { Router, Request, Response } from 'express';
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import fs from 'node:fs';
 import XLSX from 'xlsx';
 import { logActivity } from '../services/activityLogger';
-
+// Importing necessary modules and initializing router
 interface MulterRequest extends Request {
     file?: Express.Multer.File;
 }
@@ -27,7 +27,7 @@ async function normalizeClientId(clientIdInput: any): Promise<number | null> {
     if (!clientIdInput) return null;
 
     // Se já é número, retornar
-    if (!isNaN(Number(clientIdInput))) {
+    if (!Number.isNaN(Number(clientIdInput))) {
         return Number(clientIdInput);
     }
 
@@ -57,7 +57,7 @@ function parseExcelDate(dateValue: any): Date | null {
     try {
         // Se já é Date, retornar
         if (dateValue instanceof Date) {
-            return isNaN(dateValue.getTime()) ? null : dateValue;
+            return Number.isNaN(dateValue.getTime()) ? null : dateValue;
         }
 
         // Se é número (serial date do Excel)
@@ -65,32 +65,33 @@ function parseExcelDate(dateValue: any): Date | null {
             // Excel dates são dias desde 1/1/1900 (com bug do 1900)
             const excelEpoch = new Date(1899, 11, 30);
             const date = new Date(excelEpoch.getTime() + dateValue * 86400000);
-            return isNaN(date.getTime()) ? null : date;
+            return Number.isNaN(date.getTime()) ? null : date;
         }
 
         // Se é string, tentar formato brasileiro DD/MM/YYYY primeiro
         if (typeof dateValue === 'string') {
             // Tentar formato brasileiro DD/MM/YYYY HH:MM ou DD/MM/YYYY
-            const brMatch = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+            const brRegex = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/;
+            const brMatch = brRegex.exec(dateValue);
             if (brMatch) {
-                const day = parseInt(brMatch[1], 10);
-                const month = parseInt(brMatch[2], 10) - 1; // Mês é 0-indexed
-                const year = parseInt(brMatch[3], 10);
-                const hour = brMatch[4] ? parseInt(brMatch[4], 10) : 0;
-                const minute = brMatch[5] ? parseInt(brMatch[5], 10) : 0;
+                const day = Number.parseInt(brMatch[1], 10);
+                const month = Number.parseInt(brMatch[2], 10) - 1; // Mês é 0-indexed
+                const year = Number.parseInt(brMatch[3], 10);
+                const hour = brMatch[4] ? Number.parseInt(brMatch[4], 10) : 0;
+                const minute = brMatch[5] ? Number.parseInt(brMatch[5], 10) : 0;
 
                 const date = new Date(year, month, day, hour, minute);
-                return isNaN(date.getTime()) ? null : date;
+                return Number.isNaN(date.getTime()) ? null : date;
             }
 
             // Fallback: formato ISO ou outro
             const parsed = new Date(dateValue);
-            return isNaN(parsed.getTime()) ? null : parsed;
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
         }
 
         return null;
     } catch (error) {
-        console.warn(`⚠️ Erro ao parsear data: ${dateValue}`);
+        console.warn(`⚠️ Erro ao parsear data: ${dateValue}`, error);
         return null;
     }
 }
@@ -186,11 +187,11 @@ enviosRouter.get('/:envio_id/detalhes', async (req: Request, res: Response) => {
         // Calcular resumo
         const resumo = {
             tot_itens: envio.tot_itens || 0,
-            tot_qtd: parseFloat(envio.tot_qtd || 0),
+            tot_qtd: Number.parseFloat(envio.tot_qtd || 0),
             matched_itens: matchedResult.rows.length,
-            matched_qtd: matchedResult.rows.reduce((sum, r) => sum + parseFloat(r.qtd), 0),
+            matched_qtd: matchedResult.rows.reduce((sum, r) => sum + Number.parseFloat(r.qtd), 0),
             pending_itens: pendingResult.rows.length,
-            pending_qtd: pendingResult.rows.reduce((sum, r) => sum + parseFloat(r.qtd), 0)
+            pending_qtd: pendingResult.rows.reduce((sum, r) => sum + Number.parseFloat(r.qtd), 0)
         };
 
         res.json({
@@ -315,11 +316,11 @@ enviosRouter.get('/', async (req: Request, res: Response) => {
             // Calcular resumo
             const resumo = {
                 tot_itens: envio.tot_itens || 0,
-                tot_qtd: parseFloat(envio.tot_qtd || 0),
+                tot_qtd: Number.parseFloat(envio.tot_qtd || 0),
                 registrados_itens: matchedResult.rows.length,
-                registrados_qtd: matchedResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.qtd), 0),
+                registrados_qtd: matchedResult.rows.reduce((sum: number, r: {qtd: string}) => sum + Number.parseFloat(r.qtd), 0),
                 pendentes_itens: pendingResult.rows.length,
-                pendentes_qtd: pendingResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.qtd), 0)
+                pendentes_qtd: pendingResult.rows.reduce((sum: number, r: {qtd: string}) => sum + Number.parseFloat(r.qtd), 0)
             };
 
             return res.json({
@@ -398,11 +399,11 @@ enviosRouter.get('/', async (req: Request, res: Response) => {
                 // Calcular resumo
                 const resumo = {
                     tot_itens: envio.tot_itens || 0,
-                    tot_qtd: parseFloat(envio.tot_qtd || 0),
+                    tot_qtd: Number.parseFloat(envio.tot_qtd || 0),
                     registrados_itens: matchedResult.rows.length,
-                    registrados_qtd: matchedResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.qtd), 0),
+                    registrados_qtd: matchedResult.rows.reduce((sum: number, r: {qtd: string}) => sum + Number.parseFloat(r.qtd), 0),
                     pendentes_itens: pendingResult.rows.length,
-                    pendentes_qtd: pendingResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.qtd), 0)
+                    pendentes_qtd: pendingResult.rows.reduce((sum: number, r: {qtd: string}) => sum + Number.parseFloat(r.qtd), 0)
                 };
 
                 return res.json({
@@ -426,7 +427,7 @@ enviosRouter.get('/', async (req: Request, res: Response) => {
                      WHERE client_id = $1 AND source = $2 
                      AND (filename LIKE $3 OR import_id::text = $4)
                      ORDER BY started_at DESC LIMIT 1`,
-                    [clientIdNum, source || 'ML', `%${envio_num}%`, envio_num]
+                    [clientIdNum, source || 'ML', `%${String(envio_num)}%`, envio_num]
                 );
 
                 if (batchResult.rows.length === 0) {
@@ -496,8 +497,8 @@ enviosRouter.get('/', async (req: Request, res: Response) => {
             query += ` AND status = $${params.length}`;
         }
 
-        if (client_id && !isNaN(parseInt(client_id as string))) {
-            params.push(parseInt(client_id as string));
+        if (client_id && !Number.isNaN(Number.parseInt(client_id as string))) {
+            params.push(Number.parseInt(client_id as string));
             query += ` AND client_id = $${params.length}`;
         }
 
@@ -545,8 +546,7 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
         const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         // Log das colunas do Excel para debug
-        if (jsonData.length > 0) {
-        }
+        if (jsonData.length > 0) { /* noop - placeholder for future processing */ }
 
         if (source === 'FULL') {
             // 1. CRIAR LOTE (import_batches) - ID único do upload
@@ -660,8 +660,7 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
                         console.error(`Erro na linha ${i + 1}:`, rowError.message);
                         errors.push(`Linha ${i + 1}: ${rowError.message}`);
                     }
-                } else {
-                }
+                } else { /* noop - intentionally left empty */ }
             }
 
 
@@ -978,8 +977,8 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
                     const orderDateRaw = row['Hora do Pedido'] || row['Hora do Pagamento'] || null;
                     const orderDate = parseExcelDate(orderDateRaw);
                     const sku = row['SKU'] || '';
-                    const qty = parseFloat(row['Qtd. do Produto'] || 0);
-                    const unitPrice = parseFloat(row['Preço de Produto'] || 0);
+                    const qty = Number.parseFloat(row['Qtd. do Produto'] || 0);
+                    const unitPrice = Number.parseFloat(row['Preço de Produto'] || 0);
                     const customer = row['Nome de Comprador'] || '';
                     const channel = row['Nome da Loja no UpSeller'] || row['Plataformas'] || 'ML';
 
@@ -2414,7 +2413,7 @@ enviosRouter.post('/match-line', async (req: Request, res: Response) => {
             [envioId]
         );
 
-        const hasPending = parseInt(pendingCount.rows[0].count) > 0;
+        const hasPending = Number.parseInt(pendingCount.rows[0].count) > 0;
 
         // Chamar função de normalização para atualizar full_envio_item
         try {
@@ -2480,7 +2479,7 @@ enviosRouter.post('/auto-relate', async (req: Request, res: Response) => {
                  WHERE envio_id = $1 AND status = 'pending'`,
                 [envio_id]
             );
-            const beforeCount = parseInt(beforeResult.rows[0].count);
+            const beforeCount = Number.parseInt(beforeResult.rows[0].count);
 
             // Chamar função do banco que faz o auto-relacionamento
             await pool.query(
@@ -2797,7 +2796,7 @@ enviosRouter.post('/emitir-vendas', async (req: Request, res: Response) => {
             }
 
             // Construir filtros - APENAS itens deste import específico
-            let whereClause = `WHERE status = 'matched' AND matched_sku IS NOT NULL AND import_id = $1`;
+            const whereClause = `WHERE status = 'matched' AND matched_sku IS NOT NULL AND import_id = $1`;
             const params: any[] = [finalImportId];
 
             // Buscar itens relacionados agrupados por pedido
@@ -3328,9 +3327,9 @@ enviosRouter.post('/full/kits/create-and-relate', async (req: Request, res: Resp
 
         let sku = req.body.sku;
         let nome = req.body.nome;
-        let componentes = req.body.componentes || req.body.components;
+        const componentes = req.body.componentes || req.body.components;
         let preco_unitario = req.body.preco_unitario;
-        let raw_id = req.body.raw_id;
+        const raw_id = req.body.raw_id;
 
         console.log('🎁 [FULL create-and-relate] Payload recebido:', req.body);
 

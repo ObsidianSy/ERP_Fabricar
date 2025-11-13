@@ -334,13 +334,16 @@ const mapApiDataToFrontend = (data: any[], sheetName: string): any[] => {
 
     case 'Estoque_MateriaPrima':
       return data.map(item => ({
-        'ID MateriaPrima': item.id,  // ✅ CORRETO
-        'SKU MatériaPrima': item.sku,  // ✅ CORRETO
-        'Nome MatériaPrima': item.nome,  // ✅ CORRETO
-        'Categoria': item.categoria,
-        'Quantidade Atual': item.quantidade_atual,
-        'Unidade de Medida': item.unidade_medida,
-        'Preço Unitário': item.preco_unitario
+        'ID MateriaPrima': item.id ?? item.id_mp ?? null,
+        // Alguns endpoints/DB retornam 'sku_mp' em vez de 'sku'
+        'SKU MatériaPrima': item.sku ?? item.sku_mp ?? item.sku_mp?.toString() ?? null,
+        // Nome pode vir em 'nome' ou 'nome_mp'
+        'Nome MatériaPrima': item.nome ?? item.nome_mp ?? item.nome_materia_prima ?? null,
+        'Categoria': item.categoria ?? item.tipo ?? null,
+        // Normaliza números/strings para número quando possível
+        'Quantidade Atual': Number(item.quantidade_atual ?? item.quantidade ?? 0),
+        'Unidade de Medida': item.unidade_medida ?? item.unidade_medida_mp ?? null,
+        'Preço Unitário': Number(item.preco_unitario ?? item.preco ?? 0) || 0
       }));
 
     case 'Vendas':
