@@ -57,6 +57,8 @@ const ReceitaProduto = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [searchProduto, setSearchProduto] = useState("");
+  const [searchMateriaPrima, setSearchMateriaPrima] = useState("");
   const [formData, setFormData] = useState<ReceitaFormData>({
     skuProduto: "",
     materiasPrimas: [{ skuMateriaPrima: "", quantidade: "", unidadeMedida: "" }]
@@ -582,16 +584,44 @@ const ReceitaProduto = () => {
                   <div className="space-y-4">
                     <div>
                       <Label>Produto *</Label>
-                      <Select onValueChange={(value) => setFormData(prev => ({ ...prev, skuProduto: value }))}>
+                      <Select 
+                        onValueChange={(value) => {
+                          setFormData(prev => ({ ...prev, skuProduto: value }));
+                          setSearchProduto("");
+                        }}
+                        onOpenChange={(open) => !open && setSearchProduto("")}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o produto" />
                         </SelectTrigger>
                         <SelectContent>
-                          {produtos.filter(produto => produto.SKU && produto.SKU.trim() !== "").map((produto) => (
-                            <SelectItem key={produto.SKU} value={produto.SKU}>
-                              {produto.SKU} - {produto["Nome Produto"] || ""}
-                            </SelectItem>
-                          ))}
+                          <div className="sticky top-0 bg-background p-2 border-b z-10">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Buscar produto..."
+                                value={searchProduto}
+                                onChange={(e) => setSearchProduto(e.target.value)}
+                                className="pl-8 h-9"
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto">
+                            {produtos
+                              .filter(produto => {
+                                if (!searchProduto.trim()) return produto.SKU && produto.SKU.trim() !== "";
+                                const search = searchProduto.toLowerCase();
+                                const sku = produto.SKU?.toLowerCase() || "";
+                                const nome = produto["Nome Produto"]?.toLowerCase() || "";
+                                return (sku.includes(search) || nome.includes(search)) && produto.SKU && produto.SKU.trim() !== "";
+                              })
+                              .map((produto) => (
+                                <SelectItem key={produto.SKU} value={produto.SKU}>
+                                  {produto.SKU} - {produto["Nome Produto"] || ""}
+                                </SelectItem>
+                              ))}
+                          </div>
                         </SelectContent>
                       </Select>
                     </div>
@@ -610,16 +640,44 @@ const ReceitaProduto = () => {
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                               <Label>Matéria-Prima</Label>
-                              <Select onValueChange={(value) => handleMateriaPrimaChange(index, "skuMateriaPrima", value)}>
+                              <Select 
+                                onValueChange={(value) => {
+                                  handleMateriaPrimaChange(index, "skuMateriaPrima", value);
+                                  setSearchMateriaPrima("");
+                                }}
+                                onOpenChange={(open) => !open && setSearchMateriaPrima("")}
+                              >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {materiasPrimas.filter(mp => mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "").map((materiaPrima) => (
-                                    <SelectItem key={materiaPrima["SKU Matéria-Prima"]} value={materiaPrima["SKU Matéria-Prima"]}>
-                                      {materiaPrima["SKU Matéria-Prima"]} - {materiaPrima["Nome Matéria-Prima"] || ""}
-                                    </SelectItem>
-                                  ))}
+                                  <div className="sticky top-0 bg-background p-2 border-b z-10">
+                                    <div className="relative">
+                                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                      <Input
+                                        placeholder="Buscar matéria-prima..."
+                                        value={searchMateriaPrima}
+                                        onChange={(e) => setSearchMateriaPrima(e.target.value)}
+                                        className="pl-8 h-9"
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="max-h-[300px] overflow-y-auto">
+                                    {materiasPrimas
+                                      .filter(mp => {
+                                        if (!searchMateriaPrima.trim()) return mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "";
+                                        const search = searchMateriaPrima.toLowerCase();
+                                        const sku = mp["SKU Matéria-Prima"]?.toLowerCase() || "";
+                                        const nome = mp["Nome Matéria-Prima"]?.toLowerCase() || "";
+                                        return (sku.includes(search) || nome.includes(search)) && mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "";
+                                      })
+                                      .map((materiaPrima) => (
+                                        <SelectItem key={materiaPrima["SKU Matéria-Prima"]} value={materiaPrima["SKU Matéria-Prima"]}>
+                                          {materiaPrima["SKU Matéria-Prima"]} - {materiaPrima["Nome Matéria-Prima"] || ""}
+                                        </SelectItem>
+                                      ))}
+                                  </div>
                                 </SelectContent>
                               </Select>
                             </div>
