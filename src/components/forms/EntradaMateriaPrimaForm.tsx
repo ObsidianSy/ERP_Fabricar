@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,10 @@ interface EntradaMateriaPrimaFormProps {
 
 export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPrimaFormProps) {
   const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrimaOption[]>([]);
+  const [searchMateriaPrima, setSearchMateriaPrima] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     skuMateriaPrima: "",
     nomeMateriaPrima: "",
@@ -148,12 +152,82 @@ export default function EntradaMateriaPrimaForm({ onSuccess }: EntradaMateriaPri
             <SelectTrigger>
               <SelectValue placeholder="Selecione o SKU da matéria-prima" />
             </SelectTrigger>
-            <SelectContent>
-              {materiasPrimas.map((materiaPrima) => (
-                <SelectItem key={materiaPrima["SKU MatériaPrima"]} value={materiaPrima["SKU MatériaPrima"]}>
-                  {materiaPrima["SKU MatériaPrima"]} - {materiaPrima["Nome MatériaPrima"]}
-                </SelectItem>
-              ))}
+            <SelectContent
+              onPointerDownOutside={(e) => {
+                // Previne fechamento ao clicar dentro do campo de busca
+                const target = e.target as HTMLElement;
+                if (target.closest('.sticky') || target.closest('input')) {
+                  e.preventDefault();
+                }
+              }}
+              onPointerMove={() => {
+                // Mantém o foco no input ao mover o mouse
+                searchInputRef.current?.focus();
+              }}
+            >
+              <div className="sticky top-0 bg-background p-2 border-b z-10">
+                <Input
+                  ref={searchInputRef}
+                  autoFocus
+                  placeholder="Buscar por SKU ou nome..."
+                  value={searchMateriaPrima}
+                  onChange={(e) => {
+                    setSearchMateriaPrima(e.target.value);
+                    setSelectedIndex(-1);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    const filteredMPs = materiasPrimas.filter(materiaPrima => 
+                      materiaPrima["SKU MatériaPrima"].toLowerCase().includes(searchMateriaPrima.toLowerCase()) ||
+                      materiaPrima["Nome MatériaPrima"].toLowerCase().includes(searchMateriaPrima.toLowerCase())
+                    );
+                    
+                    if (e.key === 'Tab') {
+                      e.preventDefault();
+                      const nextIndex = selectedIndex + 1;
+                      if (nextIndex < filteredMPs.length) {
+                        setSelectedIndex(nextIndex);
+                        itemRefs.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                      }
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (selectedIndex >= 0 && selectedIndex < filteredMPs.length) {
+                        handleSKUChange(filteredMPs[selectedIndex]["SKU MatériaPrima"]);
+                      }
+                    } else if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      const nextIndex = Math.min(selectedIndex + 1, filteredMPs.length - 1);
+                      setSelectedIndex(nextIndex);
+                      itemRefs.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      const prevIndex = Math.max(selectedIndex - 1, 0);
+                      setSelectedIndex(prevIndex);
+                      itemRefs.current[prevIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {materiasPrimas
+                  .filter(materiaPrima => 
+                    materiaPrima["SKU MatériaPrima"].toLowerCase().includes(searchMateriaPrima.toLowerCase()) ||
+                    materiaPrima["Nome MatériaPrima"].toLowerCase().includes(searchMateriaPrima.toLowerCase())
+                  )
+                  .map((materiaPrima, index) => (
+                    <div
+                      key={materiaPrima["SKU MatériaPrima"]}
+                      ref={(el) => itemRefs.current[index] = el}
+                      className={selectedIndex === index ? 'bg-accent' : ''}
+                    >
+                      <SelectItem value={materiaPrima["SKU MatériaPrima"]}>
+                        {materiaPrima["SKU MatériaPrima"]} - {materiaPrima["Nome MatériaPrima"]}
+                      </SelectItem>
+                    </div>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
         </div>

@@ -5,9 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Scan, Minus, Plus, Edit3, Trash2 } from "lucide-react";
+import { Scan, Minus, Plus, Edit3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Html5QrcodeScanner } from "html5-qrcode";
@@ -56,7 +54,7 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [openProduto, setOpenProduto] = useState(false);
+  const [searchProdutoManual, setSearchProdutoManual] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [isClienteDrop, setIsClienteDrop] = useState(false); // Flag para cliente DROP (+R$5 por produto)
@@ -522,60 +520,60 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-2">
                   <Label htmlFor="produto">SKU *</Label>
-                  <Popover open={openProduto} onOpenChange={setOpenProduto} modal={false}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openProduto}
-                        className="w-full justify-between"
-                      >
-                        {currentItem["SKU Produto"] || "Selecione SKU"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0 max-h-80 overflow-auto z-50">
-                      <Command>
-                        <CommandInput placeholder="Pesquisar SKU..." />
-                        <CommandList className="max-h-72 overflow-y-auto" onWheelCapture={(e) => e.stopPropagation()}>
-                          <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                          <CommandGroup>
-                            {produtos.map((produto) => {
-                              const estoque = produto["Quantidade Atual"];
-                              const estoqueNegativo = estoque < 0;
-                              const estoqueBaixo = estoque >= 0 && estoque <= 5;
+                  <Select value={currentItem["SKU Produto"]} onValueChange={handleSelectProduto}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione SKU" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <div className="sticky top-0 bg-background p-2 border-b z-10">
+                        <Input
+                          placeholder="Buscar por SKU ou nome..."
+                          value={searchProdutoManual}
+                          onChange={(e) => setSearchProdutoManual(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true });
+                              e.currentTarget.dispatchEvent(event);
+                            } else if (e.key === 'Enter') {
+                              e.stopPropagation();
+                            } else {
+                              e.stopPropagation();
+                            }
+                          }}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto">
+                        {produtos
+                          .filter(produto => 
+                            produto["SKU"].toLowerCase().includes(searchProdutoManual.toLowerCase()) ||
+                            produto["Nome Produto"].toLowerCase().includes(searchProdutoManual.toLowerCase())
+                          )
+                          .map((produto) => {
+                            const estoque = produto["Quantidade Atual"];
+                            const estoqueNegativo = estoque < 0;
+                            const estoqueBaixo = estoque >= 0 && estoque <= 5;
 
-                              return (
-                                <CommandItem
-                                  key={produto["SKU"]}
-                                  value={produto["SKU"]}
-                                  onSelect={() => {
-                                    handleSelectProduto(produto["SKU"]);
-                                    setOpenProduto(false);
-                                  }}
-                                  className={cn(
-                                    estoqueNegativo && "text-red-600 font-semibold",
-                                    estoqueBaixo && !estoqueNegativo && "text-orange-600"
-                                  )}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      currentItem["SKU Produto"] === produto["SKU"] ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {produto["SKU"]} (Estoque: {estoque}
-                                  {estoqueNegativo && " ⚠️"}
-                                  {estoqueBaixo && !estoqueNegativo && " ⚡"}
-                                  )
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                            return (
+                              <SelectItem 
+                                key={produto["SKU"]} 
+                                value={produto["SKU"]}
+                                className={cn(
+                                  estoqueNegativo && "text-red-600 font-semibold",
+                                  estoqueBaixo && !estoqueNegativo && "text-orange-600"
+                                )}
+                              >
+                                {produto["SKU"]} (Estoque: {estoque}
+                                {estoqueNegativo && " ⚠️"}
+                                {estoqueBaixo && !estoqueNegativo && " ⚡"})
+                              </SelectItem>
+                            );
+                          })}
+                      </div>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

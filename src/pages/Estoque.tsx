@@ -75,6 +75,8 @@ const Estoque = () => {
   const [editingMateriaPrima, setEditingMateriaPrima] = useState<MateriaPrima | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<ProdutoAcabado | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [searchCategoria, setSearchCategoria] = useState("");
+  const [searchTipo, setSearchTipo] = useState("");
   const navigate = useNavigate();
 
   // Use custom hook for products - sem auto-refresh para melhor performance
@@ -750,10 +752,36 @@ const Estoque = () => {
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas categorias</SelectItem>
-              {categorias.map(categoria => (
-                <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
-              ))}
+              <div className="sticky top-0 bg-background p-2 border-b z-10">
+                <Input
+                  placeholder="Buscar categoria..."
+                  value={searchCategoria}
+                  onChange={(e) => setSearchCategoria(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      e.preventDefault();
+                      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true });
+                      e.currentTarget.dispatchEvent(event);
+                    } else if (e.key === 'Enter') {
+                      e.stopPropagation();
+                    } else {
+                      e.stopPropagation();
+                    }
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                <SelectItem value="todas">Todas categorias</SelectItem>
+                {categorias
+                  .filter(categoria => 
+                    categoria.toLowerCase().includes(searchCategoria.toLowerCase())
+                  )
+                  .map(categoria => (
+                    <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
 
@@ -762,10 +790,36 @@ const Estoque = () => {
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os tipos</SelectItem>
-              {tipos.map(tipo => (
-                <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-              ))}
+              <div className="sticky top-0 bg-background p-2 border-b z-10">
+                <Input
+                  placeholder="Buscar tipo..."
+                  value={searchTipo}
+                  onChange={(e) => setSearchTipo(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      e.preventDefault();
+                      const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true });
+                      e.currentTarget.dispatchEvent(event);
+                    } else if (e.key === 'Enter') {
+                      e.stopPropagation();
+                    } else {
+                      e.stopPropagation();
+                    }
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                <SelectItem value="todos">Todos os tipos</SelectItem>
+                {tipos
+                  .filter(tipo => 
+                    tipo.toLowerCase().includes(searchTipo.toLowerCase())
+                  )
+                  .map(tipo => (
+                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
         </div>

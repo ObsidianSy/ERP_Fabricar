@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,10 @@ interface EntradaProdutoFormProps {
 
 export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProps) {
   const [produtos, setProdutos] = useState<ProdutoOption[]>([]);
+  const [searchProduto, setSearchProduto] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     sku: "",
     nomeProduto: "",
@@ -144,12 +148,82 @@ export default function EntradaProdutoForm({ onSuccess }: EntradaProdutoFormProp
             <SelectTrigger>
               <SelectValue placeholder="Selecione o SKU do produto" />
             </SelectTrigger>
-            <SelectContent>
-              {sortBySKU(produtos, "SKU").map((produto) => (
-                <SelectItem key={produto.SKU} value={produto.SKU}>
-                  {produto.SKU} - {produto["Nome Produto"]}
-                </SelectItem>
-              ))}
+            <SelectContent
+              onPointerDownOutside={(e) => {
+                // Previne fechamento ao clicar dentro do campo de busca
+                const target = e.target as HTMLElement;
+                if (target.closest('.sticky') || target.closest('input')) {
+                  e.preventDefault();
+                }
+              }}
+              onPointerMove={() => {
+                // Mantém o foco no input ao mover o mouse
+                searchInputRef.current?.focus();
+              }}
+            >
+              <div className="sticky top-0 bg-background p-2 border-b z-10">
+                <Input
+                  ref={searchInputRef}
+                  autoFocus
+                  placeholder="Buscar por SKU ou nome..."
+                  value={searchProduto}
+                  onChange={(e) => {
+                    setSearchProduto(e.target.value);
+                    setSelectedIndex(-1);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    const filteredProdutos = sortBySKU(produtos, "SKU").filter(produto => 
+                      produto.SKU.toLowerCase().includes(searchProduto.toLowerCase()) ||
+                      produto["Nome Produto"].toLowerCase().includes(searchProduto.toLowerCase())
+                    );
+                    
+                    if (e.key === 'Tab') {
+                      e.preventDefault();
+                      const nextIndex = selectedIndex + 1;
+                      if (nextIndex < filteredProdutos.length) {
+                        setSelectedIndex(nextIndex);
+                        itemRefs.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                      }
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (selectedIndex >= 0 && selectedIndex < filteredProdutos.length) {
+                        handleSKUChange(filteredProdutos[selectedIndex].SKU);
+                      }
+                    } else if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      const nextIndex = Math.min(selectedIndex + 1, filteredProdutos.length - 1);
+                      setSelectedIndex(nextIndex);
+                      itemRefs.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      const prevIndex = Math.max(selectedIndex - 1, 0);
+                      setSelectedIndex(prevIndex);
+                      itemRefs.current[prevIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {sortBySKU(produtos, "SKU")
+                  .filter(produto => 
+                    produto.SKU.toLowerCase().includes(searchProduto.toLowerCase()) ||
+                    produto["Nome Produto"].toLowerCase().includes(searchProduto.toLowerCase())
+                  )
+                  .map((produto, index) => (
+                    <div
+                      key={produto.SKU}
+                      ref={(el) => itemRefs.current[index] = el}
+                      className={selectedIndex === index ? 'bg-accent' : ''}
+                    >
+                      <SelectItem value={produto.SKU}>
+                        {produto.SKU} - {produto["Nome Produto"]}
+                      </SelectItem>
+                    </div>
+                  ))}
+              </div>
             </SelectContent>
           </Select>
         </div>

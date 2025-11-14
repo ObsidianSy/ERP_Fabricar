@@ -26,19 +26,20 @@ router.post('/login', async (req: any, res: Response) => {
     console.log('Body keys:', Object.keys(req.body || {}));
     console.log('====================');
 
-    const { email, senha } = req.body;
+    const { email, senha, password } = req.body;
+    const senhaFinal = senha || password; // Aceita tanto 'senha' quanto 'password'
 
     // Log para debug
-    console.log('📨 Login request body:', { email: email ? '✓' : '✗', senha: senha ? '✓' : '✗' });
+    console.log('📨 Login request body:', { email: email ? '✓' : '✗', senha: senhaFinal ? '✓' : '✗' });
     console.log('📦 Full body:', req.body);
 
     // Validação explícita
-    if (!email || !senha) {
+    if (!email || !senhaFinal) {
         console.log('❌ Validação falhou - email ou senha ausentes');
         return res.status(400).json({
             success: false,
             error: 'Email e senha são obrigatórios',
-            received: { email: !!email, senha: !!senha }
+            received: { email: !!email, senha: !!senhaFinal }
         });
     }
 
@@ -63,7 +64,7 @@ router.post('/login', async (req: any, res: Response) => {
         }
 
         // Verificar senha com bcrypt
-        const senhaValida = await bcrypt.compare(senha, usuario.senha_hash);
+        const senhaValida = await bcrypt.compare(senhaFinal, usuario.senha_hash);
         if (!senhaValida) {
             return res.status(401).json({ error: 'Credenciais inválidas' });
         }
