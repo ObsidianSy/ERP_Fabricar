@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,12 @@ const ReceitaProduto = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [searchProduto, setSearchProduto] = useState("");
   const [searchMateriaPrima, setSearchMateriaPrima] = useState("");
+  const [selectedIndexProduto, setSelectedIndexProduto] = useState(-1);
+  const [selectedIndexMP, setSelectedIndexMP] = useState(-1);
+  const itemRefsProduto = useRef<(HTMLDivElement | null)[]>([]);
+  const itemRefsMP = useRef<(HTMLDivElement | null)[]>([]);
+  const searchInputRefProduto = useRef<HTMLInputElement>(null);
+  const searchInputRefMP = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ReceitaFormData>({
     skuProduto: "",
     materiasPrimas: [{ skuMateriaPrima: "", quantidade: "", unidadeMedida: "" }]
@@ -594,16 +600,65 @@ const ReceitaProduto = () => {
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o produto" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                          onPointerDownOutside={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest('.sticky') || target.closest('input')) {
+                              e.preventDefault();
+                            }
+                          }}
+                          onPointerMove={() => {
+                            searchInputRefProduto.current?.focus();
+                          }}
+                        >
                           <div className="sticky top-0 bg-background p-2 border-b z-10">
                             <div className="relative">
                               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                               <Input
+                                ref={searchInputRefProduto}
+                                autoFocus
                                 placeholder="Buscar produto..."
                                 value={searchProduto}
-                                onChange={(e) => setSearchProduto(e.target.value)}
+                                onChange={(e) => {
+                                  setSearchProduto(e.target.value);
+                                  setSelectedIndexProduto(-1);
+                                }}
                                 className="pl-8 h-9"
-                                onKeyDown={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  e.stopPropagation();
+                                  const filteredProdutos = produtos.filter(produto => {
+                                    if (!searchProduto.trim()) return produto.SKU && produto.SKU.trim() !== "";
+                                    const search = searchProduto.toLowerCase();
+                                    const sku = produto.SKU?.toLowerCase() || "";
+                                    const nome = produto["Nome Produto"]?.toLowerCase() || "";
+                                    return (sku.includes(search) || nome.includes(search)) && produto.SKU && produto.SKU.trim() !== "";
+                                  });
+                                  
+                                  if (e.key === 'Tab') {
+                                    e.preventDefault();
+                                    const nextIndex = selectedIndexProduto + 1;
+                                    if (nextIndex < filteredProdutos.length) {
+                                      setSelectedIndexProduto(nextIndex);
+                                      itemRefsProduto.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                    }
+                                  } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (selectedIndexProduto >= 0 && selectedIndexProduto < filteredProdutos.length) {
+                                      setFormData(prev => ({ ...prev, skuProduto: filteredProdutos[selectedIndexProduto].SKU }));
+                                      setSearchProduto("");
+                                    }
+                                  } else if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    const nextIndex = Math.min(selectedIndexProduto + 1, filteredProdutos.length - 1);
+                                    setSelectedIndexProduto(nextIndex);
+                                    itemRefsProduto.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                  } else if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    const prevIndex = Math.max(selectedIndexProduto - 1, 0);
+                                    setSelectedIndexProduto(prevIndex);
+                                    itemRefsProduto.current[prevIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                  }
+                                }}
                               />
                             </div>
                           </div>
@@ -616,10 +671,16 @@ const ReceitaProduto = () => {
                                 const nome = produto["Nome Produto"]?.toLowerCase() || "";
                                 return (sku.includes(search) || nome.includes(search)) && produto.SKU && produto.SKU.trim() !== "";
                               })
-                              .map((produto) => (
-                                <SelectItem key={produto.SKU} value={produto.SKU}>
-                                  {produto.SKU} - {produto["Nome Produto"] || ""}
-                                </SelectItem>
+                              .map((produto, index) => (
+                                <div
+                                  key={produto.SKU}
+                                  ref={(el) => itemRefsProduto.current[index] = el}
+                                  className={selectedIndexProduto === index ? 'bg-accent' : ''}
+                                >
+                                  <SelectItem value={produto.SKU}>
+                                    {produto.SKU} - {produto["Nome Produto"] || ""}
+                                  </SelectItem>
+                                </div>
                               ))}
                           </div>
                         </SelectContent>
@@ -650,16 +711,65 @@ const ReceitaProduto = () => {
                                 <SelectTrigger>
                                   <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent
+                                  onPointerDownOutside={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (target.closest('.sticky') || target.closest('input')) {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  onPointerMove={() => {
+                                    searchInputRefMP.current?.focus();
+                                  }}
+                                >
                                   <div className="sticky top-0 bg-background p-2 border-b z-10">
                                     <div className="relative">
                                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                       <Input
+                                        ref={searchInputRefMP}
+                                        autoFocus
                                         placeholder="Buscar matéria-prima..."
                                         value={searchMateriaPrima}
-                                        onChange={(e) => setSearchMateriaPrima(e.target.value)}
+                                        onChange={(e) => {
+                                          setSearchMateriaPrima(e.target.value);
+                                          setSelectedIndexMP(-1);
+                                        }}
                                         className="pl-8 h-9"
-                                        onKeyDown={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => {
+                                          e.stopPropagation();
+                                          const filteredMPs = materiasPrimas.filter(mp => {
+                                            if (!searchMateriaPrima.trim()) return mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "";
+                                            const search = searchMateriaPrima.toLowerCase();
+                                            const sku = mp["SKU Matéria-Prima"]?.toLowerCase() || "";
+                                            const nome = mp["Nome Matéria-Prima"]?.toLowerCase() || "";
+                                            return (sku.includes(search) || nome.includes(search)) && mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "";
+                                          });
+                                          
+                                          if (e.key === 'Tab') {
+                                            e.preventDefault();
+                                            const nextIndex = selectedIndexMP + 1;
+                                            if (nextIndex < filteredMPs.length) {
+                                              setSelectedIndexMP(nextIndex);
+                                              itemRefsMP.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                            }
+                                          } else if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (selectedIndexMP >= 0 && selectedIndexMP < filteredMPs.length) {
+                                              handleMateriaPrimaChange(index, "skuMateriaPrima", filteredMPs[selectedIndexMP]["SKU Matéria-Prima"]);
+                                              setSearchMateriaPrima("");
+                                            }
+                                          } else if (e.key === 'ArrowDown') {
+                                            e.preventDefault();
+                                            const nextIndex = Math.min(selectedIndexMP + 1, filteredMPs.length - 1);
+                                            setSelectedIndexMP(nextIndex);
+                                            itemRefsMP.current[nextIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                          } else if (e.key === 'ArrowUp') {
+                                            e.preventDefault();
+                                            const prevIndex = Math.max(selectedIndexMP - 1, 0);
+                                            setSelectedIndexMP(prevIndex);
+                                            itemRefsMP.current[prevIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                          }
+                                        }}
                                       />
                                     </div>
                                   </div>
@@ -672,10 +782,16 @@ const ReceitaProduto = () => {
                                         const nome = mp["Nome Matéria-Prima"]?.toLowerCase() || "";
                                         return (sku.includes(search) || nome.includes(search)) && mp["SKU Matéria-Prima"] && mp["SKU Matéria-Prima"].trim() !== "";
                                       })
-                                      .map((materiaPrima) => (
-                                        <SelectItem key={materiaPrima["SKU Matéria-Prima"]} value={materiaPrima["SKU Matéria-Prima"]}>
-                                          {materiaPrima["SKU Matéria-Prima"]} - {materiaPrima["Nome Matéria-Prima"] || ""}
-                                        </SelectItem>
+                                      .map((materiaPrima, mpIndex) => (
+                                        <div
+                                          key={materiaPrima["SKU Matéria-Prima"]}
+                                          ref={(el) => itemRefsMP.current[mpIndex] = el}
+                                          className={selectedIndexMP === mpIndex ? 'bg-accent' : ''}
+                                        >
+                                          <SelectItem value={materiaPrima["SKU Matéria-Prima"]}>
+                                            {materiaPrima["SKU Matéria-Prima"]} - {materiaPrima["Nome Matéria-Prima"] || ""}
+                                          </SelectItem>
+                                        </div>
                                       ))}
                                   </div>
                                 </SelectContent>
