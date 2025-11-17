@@ -139,11 +139,16 @@ export const enviarDados = async (request: N8nRequest): Promise<boolean> => {
       body: method !== 'DELETE' ? JSON.stringify(mapDataToApi(request.data, request.sheetName)) : undefined,
     });
 
+    console.log(`[enviarDados] ${method} ${url} -> Status: ${response.status}`);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Erro na resposta do servidor:', response.status, errorText);
       return false;
     }
+
+    const responseData = await response.json();
+    console.log(`[enviarDados] Resposta:`, responseData);
 
     return true;
   } catch (error) {

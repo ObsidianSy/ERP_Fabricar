@@ -168,4 +168,6 @@ preciso que vc sempre ache o meu codigo la e manda pra colar e manda tambem o co
 
 e depos de vc me dar o codigo pronto, eu preciso que vc explique sempre oque cada linha faz qual a logica disso pra eu aprender.
 
+Voce ta passando muita coisa muita informaçao que isso nao vai agregar nada pra mim preciso so do que for suficiente pra entender e aprender, sem muita enrolaçao ta ficanco muito grande algo que pode ser apenas um resumo, quero apenas o suficiente. !!!
+
 FIM DO PROMPT. Cumpra estritamente o MODO BANCO DE DADOS e o ROTEIRO.

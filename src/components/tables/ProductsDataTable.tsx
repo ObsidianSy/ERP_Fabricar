@@ -121,8 +121,8 @@ const ProductsDataTableComponent = ({
         toast.error("Erro ao excluir produto");
       }
     } catch (error) {
-      console.error("Erro ao excluir produto:", error);
-      toast.error("Erro inesperado ao excluir produto");
+      console.error("Erro ao remover produto:", error);
+      toast.error("Erro inesperado ao remover produto");
     } finally {
       setIsDeleting(false);
       setDeleteProduct(null);

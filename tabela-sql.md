@@ -24,6 +24,34 @@ CREATE TABLE "obsidian"."apontamentos_producao" (
   "criado_em" TIMESTAMP NULL DEFAULT now() ,
   CONSTRAINT "apontamentos_producao_pkey" PRIMARY KEY ("id")
 );
+CREATE TABLE "financeiro"."cartao" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "tenant_id" UUID NOT NULL,
+  "apelido" VARCHAR(100) NOT NULL,
+  "bandeira" VARCHAR(50) NULL,
+  "ultimos_digitos" VARCHAR(4) NULL,
+  "limite" NUMERIC NOT NULL DEFAULT 0.00 ,
+  "dia_fechamento" INTEGER NOT NULL,
+  "dia_vencimento" INTEGER NOT NULL,
+  "conta_pagamento_id" UUID NULL,
+  "ativo" BOOLEAN NULL DEFAULT true ,
+  "is_deleted" BOOLEAN NULL DEFAULT false ,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "cartao_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "financeiro"."categoria" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "tenant_id" UUID NULL,
+  "nome" VARCHAR(100) NOT NULL,
+  "tipo" VARCHAR(50) NOT NULL,
+  "parent_id" UUID NULL,
+  "icone" VARCHAR(50) NULL,
+  "cor" VARCHAR(20) NULL,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "categoria_pkey" PRIMARY KEY ("id")
+);
 CREATE TABLE "obsidian"."clientes" ( 
   "id" SERIAL,
   "nome" TEXT NOT NULL,
@@ -45,6 +73,22 @@ CREATE TABLE "obsidian"."consumo_mp_op" (
   "criado_em" TIMESTAMP NULL DEFAULT now() ,
   CONSTRAINT "consumo_mp_op_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "uq_consumo_op_mp" UNIQUE ("op_id", "sku_mp")
+);
+CREATE TABLE "financeiro"."conta" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "tenant_id" UUID NOT NULL,
+  "nome" VARCHAR(200) NOT NULL,
+  "tipo" VARCHAR(50) NOT NULL,
+  "saldo_inicial" NUMERIC NULL DEFAULT 0.00 ,
+  "saldo_atual" NUMERIC NULL DEFAULT 0.00 ,
+  "banco" VARCHAR(100) NULL,
+  "agencia" VARCHAR(20) NULL,
+  "conta_numero" VARCHAR(30) NULL,
+  "ativo" BOOLEAN NULL DEFAULT true ,
+  "is_deleted" BOOLEAN NULL DEFAULT false ,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "conta_pkey" PRIMARY KEY ("id")
 );
 CREATE TABLE "obsidian"."devolucoes" ( 
   "id" SERIAL,
@@ -72,6 +116,37 @@ CREATE TABLE "obsidian"."estoque_movimentos" (
   "origem_id" TEXT NULL,
   "observacao" TEXT NULL,
   CONSTRAINT "estoque_movimentos_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "financeiro"."fatura" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "cartao_id" UUID NOT NULL,
+  "competencia" DATE NOT NULL,
+  "data_fechamento" DATE NOT NULL,
+  "data_vencimento" DATE NOT NULL,
+  "valor_total" NUMERIC NULL DEFAULT 0.00 ,
+  "valor_pago" NUMERIC NULL DEFAULT 0.00 ,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'aberta'::character varying ,
+  "transacao_pagamento_id" UUID NULL,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "fatura_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "uq_fatura_cartao_competencia" UNIQUE ("cartao_id", "competencia")
+);
+CREATE TABLE "financeiro"."fatura_item" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "fatura_id" UUID NOT NULL,
+  "descricao" VARCHAR(255) NOT NULL,
+  "valor" NUMERIC NOT NULL,
+  "data_compra" DATE NOT NULL,
+  "categoria_id" UUID NULL,
+  "parcela_numero" INTEGER NULL,
+  "parcela_total" INTEGER NULL,
+  "parcela_group_id" UUID NULL,
+  "observacoes" TEXT NULL,
+  "is_deleted" BOOLEAN NULL DEFAULT false ,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "fatura_item_pkey" PRIMARY KEY ("id")
 );
 CREATE TABLE "obsidian"."import_batches" ( 
   "import_id" UUID NOT NULL DEFAULT gen_random_uuid() ,
@@ -256,6 +331,26 @@ CREATE TABLE "obsidian"."sku_aliases" (
   "created_at" TIMESTAMP WITH TIME ZONE NULL DEFAULT now() ,
   CONSTRAINT "sku_aliases_pkey" PRIMARY KEY ("id")
 );
+CREATE TABLE "financeiro"."transacao" ( 
+  "id" UUID NOT NULL DEFAULT uuid_generate_v4() ,
+  "tenant_id" UUID NOT NULL,
+  "descricao" VARCHAR(255) NOT NULL,
+  "valor" NUMERIC NOT NULL,
+  "tipo" VARCHAR(50) NOT NULL,
+  "data_transacao" DATE NOT NULL,
+  "data_compensacao" DATE NULL,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'previsto'::character varying ,
+  "origem" VARCHAR(50) NULL DEFAULT 'manual'::character varying ,
+  "referencia" VARCHAR(255) NULL,
+  "conta_id" UUID NOT NULL,
+  "conta_destino_id" UUID NULL,
+  "categoria_id" UUID NULL,
+  "observacoes" TEXT NULL,
+  "anexo_url" TEXT NULL,
+  "created_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  "updated_at" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ,
+  CONSTRAINT "transacao_pkey" PRIMARY KEY ("id")
+);
 CREATE TABLE "obsidian"."usuario_roles" ( 
   "usuario_id" UUID NOT NULL,
   "role_id" INTEGER NOT NULL,
@@ -307,8 +402,13 @@ CREATE TABLE "obsidian"."vendas" (
 );
 ALTER TABLE "obsidian"."apontamentos_producao" ADD CONSTRAINT "fk_apontamento_op" FOREIGN KEY ("op_id") REFERENCES "obsidian"."ordens_producao" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."apontamentos_producao" ADD CONSTRAINT "fk_apontamento_operador" FOREIGN KEY ("operador_id") REFERENCES "obsidian"."usuarios" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."cartao" ADD CONSTRAINT "cartao_conta_pagamento_id_fkey" FOREIGN KEY ("conta_pagamento_id") REFERENCES "financeiro"."conta" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."categoria" ADD CONSTRAINT "categoria_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "financeiro"."categoria" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."consumo_mp_op" ADD CONSTRAINT "fk_consumo_op" FOREIGN KEY ("op_id") REFERENCES "obsidian"."ordens_producao" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."consumo_mp_op" ADD CONSTRAINT "fk_consumo_mp" FOREIGN KEY ("sku_mp") REFERENCES "obsidian"."materia_prima" ("sku_mp") ON DELETE RESTRICT ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."fatura" ADD CONSTRAINT "fatura_cartao_id_fkey" FOREIGN KEY ("cartao_id") REFERENCES "financeiro"."cartao" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."fatura_item" ADD CONSTRAINT "fatura_item_fatura_id_fkey" FOREIGN KEY ("fatura_id") REFERENCES "financeiro"."fatura" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."fatura_item" ADD CONSTRAINT "fatura_item_categoria_id_fkey" FOREIGN KEY ("categoria_id") REFERENCES "financeiro"."categoria" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."kpis_producao" ADD CONSTRAINT "fk_kpi_setor" FOREIGN KEY ("setor_id") REFERENCES "obsidian"."clientes" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."kpis_producao" ADD CONSTRAINT "fk_kpi_op" FOREIGN KEY ("op_id") REFERENCES "obsidian"."ordens_producao" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."ordens_producao" ADD CONSTRAINT "fk_op_produto" FOREIGN KEY ("sku_produto") REFERENCES "obsidian"."produtos" ("sku") ON DELETE RESTRICT ON UPDATE NO ACTION;
@@ -320,6 +420,9 @@ ALTER TABLE "obsidian"."receita_produto" ADD CONSTRAINT "fk_receita_mp" FOREIGN 
 ALTER TABLE "obsidian"."refugos" ADD CONSTRAINT "fk_refugo_op" FOREIGN KEY ("op_id") REFERENCES "obsidian"."ordens_producao" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."refugos" ADD CONSTRAINT "fk_refugo_apontamento" FOREIGN KEY ("apontamento_id") REFERENCES "obsidian"."apontamentos_producao" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."refugos" ADD CONSTRAINT "fk_refugo_usuario" FOREIGN KEY ("registrado_por") REFERENCES "obsidian"."usuarios" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."transacao" ADD CONSTRAINT "transacao_conta_id_fkey" FOREIGN KEY ("conta_id") REFERENCES "financeiro"."conta" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."transacao" ADD CONSTRAINT "transacao_conta_destino_id_fkey" FOREIGN KEY ("conta_destino_id") REFERENCES "financeiro"."conta" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+ALTER TABLE "financeiro"."transacao" ADD CONSTRAINT "transacao_categoria_id_fkey" FOREIGN KEY ("categoria_id") REFERENCES "financeiro"."categoria" ("id") ON DELETE SET NULL ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."usuario_roles" ADD CONSTRAINT "fk_usuario" FOREIGN KEY ("usuario_id") REFERENCES "obsidian"."usuarios" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."usuario_roles" ADD CONSTRAINT "fk_role" FOREIGN KEY ("role_id") REFERENCES "obsidian"."roles" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "obsidian"."usuarios_permissoes" ADD CONSTRAINT "usuarios_permissoes_permissao_id_fkey" FOREIGN KEY ("permissao_id") REFERENCES "obsidian"."permissoes" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
@@ -437,6 +540,82 @@ BEGIN
     AND status = 'em_producao';
   
   RETURN NEW;
+END;
+
+$$;
+CREATE FUNCTION "financeiro"."atualizar_saldo_conta"() RETURNS TRIGGER LANGUAGE PLPGSQL
+AS
+$$
+
+BEGIN
+IF NEW.status = 'liquidado' AND OLD.status != 'liquidado' THEN
+IF NEW.tipo = 'credito' THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual + NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+ELSIF NEW.tipo = 'debito' THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual - NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+ELSIF NEW.tipo = 'transferencia' AND NEW.conta_destino_id IS NOT NULL THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual - NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual + NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_destino_id;
+END IF;
+END IF;
+
+IF NEW.status = 'cancelado' AND OLD.status = 'liquidado' THEN
+IF NEW.tipo = 'credito' THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual - NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+ELSIF NEW.tipo = 'debito' THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual + NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+ELSIF NEW.tipo = 'transferencia' AND NEW.conta_destino_id IS NOT NULL THEN
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual + NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_id;
+
+UPDATE financeiro.conta
+SET saldo_atual = saldo_atual - NEW.valor,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = NEW.conta_destino_id;
+END IF;
+END IF;
+
+RETURN NEW;
+END;
+
+$$;
+CREATE FUNCTION "financeiro"."atualizar_valor_fatura"() RETURNS TRIGGER LANGUAGE PLPGSQL
+AS
+$$
+
+BEGIN
+UPDATE financeiro.fatura
+SET valor_total = (
+SELECT COALESCE(SUM(valor), 0)
+FROM financeiro.fatura_item
+WHERE fatura_id = COALESCE(NEW.fatura_id, OLD.fatura_id)
+AND is_deleted = false
+),
+updated_at = CURRENT_TIMESTAMP
+WHERE id = COALESCE(NEW.fatura_id, OLD.fatura_id);
+
+RETURN COALESCE(NEW, OLD);
 END;
 
 $$;
@@ -722,6 +901,19 @@ AS
 $$
 
 SELECT md5((obsidian.kit_bom_canonical(b))::text);
+
+$$;
+CREATE FUNCTION "financeiro"."marcar_faturas_vencidas"() RETURNS VOID LANGUAGE PLPGSQL
+AS
+$$
+
+BEGIN
+UPDATE financeiro.fatura
+SET status = 'vencida',
+updated_at = CURRENT_TIMESTAMP
+WHERE status IN ('aberta', 'fechada')
+AND data_vencimento < CURRENT_DATE;
+END;
 
 $$;
 CREATE FUNCTION "public"."pgp_armor_headers"(OUT key TEXT, OUT value TEXT) RETURNS RECORD LANGUAGE C
@@ -1017,6 +1209,38 @@ AS
 $$
 word_similarity_op
 $$;
+CREATE VIEW "obsidian"."v_estoque_api"
+AS
+ SELECT sku,
+    nome AS descricao,
+    categoria,
+    tipo_produto,
+    tipo_estoque,
+    unidade_medida,
+    ativo,
+    COALESCE(quantidade_atual, (0)::numeric) AS quantidade,
+    COALESCE(preco_unitario, (0)::numeric) AS custo_medio,
+    COALESCE(is_kit, false) AS is_kit
+   FROM obsidian.produtos p
+  WHERE ((ativo IS TRUE) AND (COALESCE(is_kit, false) = false));;
+CREATE VIEW "financeiro"."v_faturas_resumo"
+AS
+ SELECT f.id,
+    f.cartao_id,
+    c.apelido AS cartao_apelido,
+    c.tenant_id,
+    f.competencia,
+    f.data_fechamento,
+    f.data_vencimento,
+    f.valor_total,
+    f.valor_pago,
+    f.status,
+    count(fi.id) AS total_itens,
+    count(fi.id) FILTER (WHERE (fi.is_deleted = false)) AS itens_ativos
+   FROM ((financeiro.fatura f
+     JOIN financeiro.cartao c ON ((c.id = f.cartao_id)))
+     LEFT JOIN financeiro.fatura_item fi ON ((fi.fatura_id = f.id)))
+  GROUP BY f.id, f.cartao_id, c.apelido, c.tenant_id, f.competencia, f.data_fechamento, f.data_vencimento, f.valor_total, f.valor_pago, f.status;;
 CREATE VIEW "obsidian"."v_kit_components_json"
 AS
  SELECT t.sku AS kit_sku,
@@ -1076,6 +1300,53 @@ AS
     valor_unitario AS "Valor Unitario",
     ((quantidade_por_produto * valor_unitario))::numeric(14,6) AS "Valor"
    FROM obsidian.receita_produto r;;
+CREATE VIEW "financeiro"."v_resumo_contas"
+AS
+ SELECT c.id,
+    c.tenant_id,
+    c.nome,
+    c.tipo,
+    c.saldo_inicial,
+    c.saldo_atual,
+    c.banco,
+    c.ativo,
+    count(t.id) AS total_transacoes,
+    COALESCE(sum(
+        CASE
+            WHEN (((t.tipo)::text = 'credito'::text) AND ((t.status)::text = 'liquidado'::text)) THEN t.valor
+            ELSE (0)::numeric
+        END), (0)::numeric) AS total_creditos,
+    COALESCE(sum(
+        CASE
+            WHEN (((t.tipo)::text = 'debito'::text) AND ((t.status)::text = 'liquidado'::text)) THEN t.valor
+            ELSE (0)::numeric
+        END), (0)::numeric) AS total_debitos
+   FROM (financeiro.conta c
+     LEFT JOIN financeiro.transacao t ON ((t.conta_id = c.id)))
+  WHERE (c.is_deleted = false)
+  GROUP BY c.id, c.tenant_id, c.nome, c.tipo, c.saldo_inicial, c.saldo_atual, c.banco, c.ativo;;
+CREATE VIEW "financeiro"."v_transacoes_detalhadas"
+AS
+ SELECT t.id,
+    t.tenant_id,
+    t.descricao,
+    t.valor,
+    t.tipo,
+    t.data_transacao,
+    t.data_compensacao,
+    t.status,
+    t.origem,
+    c.nome AS conta_nome,
+    c.tipo AS conta_tipo,
+    cd.nome AS conta_destino_nome,
+    cat.nome AS categoria_nome,
+    cat.tipo AS categoria_tipo,
+    t.observacoes,
+    t.created_at
+   FROM (((financeiro.transacao t
+     JOIN financeiro.conta c ON ((c.id = t.conta_id)))
+     LEFT JOIN financeiro.conta cd ON ((cd.id = t.conta_destino_id)))
+     LEFT JOIN financeiro.categoria cat ON ((cat.id = t.categoria_id)));;
 CREATE VIEW "obsidian"."v_usuarios_permissoes"
 AS
  SELECT u.id AS usuario_id,

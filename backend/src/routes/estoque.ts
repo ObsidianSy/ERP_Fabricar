@@ -232,41 +232,64 @@ estoqueRouter.put('/:sku', async (req: Request, res: Response) => {
     }
 });
 
-// DELETE - Excluir produto
+// DELETE - Excluir produto (apaga receitas/dependências primeiro)
 estoqueRouter.delete('/:sku', async (req: Request, res: Response) => {
+    const client = await pool.connect();
     try {
         const { sku } = req.params;
 
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        // 1. Apagar dependências em receita_produto
+        await client.query('DELETE FROM obsidian.receita_produto WHERE sku_produto = $1', [sku]);
+
+        // 2. Apagar componentes de kit (se for kit)
+        await client.query('DELETE FROM obsidian.kit_components WHERE kit_sku = $1', [sku]);
+
+        // 3. Apagar o produto
+        const result = await client.query(
             'DELETE FROM obsidian.produtos WHERE sku = $1 RETURNING *',
             [sku]
         );
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Produto não encontrado' });
         }
 
         const produtoExcluido = result.rows[0];
 
         // Registrar log de atividade
-        await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
-            action: 'produto_excluido',
-            entity_type: 'produto',
-            entity_id: sku,
-            details: {
-                nome: produtoExcluido.nome,
-                categoria: produtoExcluido.categoria,
-                tipo_produto: produtoExcluido.tipo_produto,
-                quantidade_final: produtoExcluido.quantidade_atual
-            }
-        });
+        try {
+            await logActivity({
+                user_email: (req as any).user?.email || 'sistema',
+                user_name: (req as any).user?.nome || 'Sistema',
+                action: 'produto_excluido',
+                entity_type: 'produto',
+                entity_id: sku,
+                details: {
+                    nome: produtoExcluido.nome,
+                    categoria: produtoExcluido.categoria,
+                    tipo_produto: produtoExcluido.tipo_produto,
+                    quantidade_final: produtoExcluido.quantidade_atual
+                }
+            });
+        } catch (logError) {
+            console.warn('Erro ao registrar log (não bloqueia exclusão):', logError);
+        }
 
-        res.json({ message: 'Produto excluído com sucesso' });
-    } catch (error) {
-        console.error('Erro ao excluir produto:', error);
-        res.status(500).json({ error: 'Erro ao excluir produto' });
+        await client.query('COMMIT');
+        console.log(`✅ Produto ${sku} excluído com sucesso`);
+        res.json({ message: 'Produto excluído com sucesso', success: true });
+    } catch (error: any) {
+        await client.query('ROLLBACK');
+        console.error('❌ Erro ao excluir produto:', error);
+        res.status(500).json({ 
+            error: 'Erro ao excluir produto',
+            detail: error.message 
+        });
+    } finally {
+        client.release();
     }
 });
 
