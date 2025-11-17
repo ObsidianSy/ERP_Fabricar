@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 export const clientesRouter = Router();
 

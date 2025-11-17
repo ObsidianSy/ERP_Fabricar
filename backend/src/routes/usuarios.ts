@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../database/db';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 const router = express.Router();
 
