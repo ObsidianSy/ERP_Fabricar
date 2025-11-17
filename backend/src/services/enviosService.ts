@@ -317,8 +317,8 @@ async function processarUploadFull(params: {
     // Registrar log de atividade
     try {
         await logActivity({
-            user_email: user_email || 'sistema',
-            user_name: user_name || 'Sistema',
+            user_email: user_email || 'sistema@erp.local',
+            user_name: user_name || 'Sistema Automático',
             action: 'upload_full',
             entity_type: 'envio',
             entity_id: envioId.toString(),
@@ -746,8 +746,8 @@ async function processarUploadML(params: {
     // Registrar log
     try {
         await logActivity({
-            user_email: user_email || 'sistema',
-            user_name: user_name || 'Sistema',
+            user_email: user_email || 'sistema@erp.local',
+            user_name: user_name || 'Sistema Automático',
             action: 'upload_ml',
             entity_type: 'import_batch',
             entity_id: batchId,

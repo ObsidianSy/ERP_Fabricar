@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
 import { enviarVendaWebhook } from '../utils/webhook';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 export const vendasRouter = Router();
 
@@ -144,7 +145,8 @@ vendasRouter.post('/', async (req: Request, res: Response) => {
     } catch (error: any) {
         await client.query('ROLLBACK');
         console.error('Erro ao criar venda:', error);
-        res.status(500).json({ error: 'Erro ao criar venda', details: error.message });
+        const errorResponse = formatErrorResponse(error, 'venda');
+        res.status(errorResponse.statusCode).json(errorResponse);
     } finally {
         client.release();
     }

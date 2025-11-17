@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
 import { logActivity } from '../services/activityLogger';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 export const estoqueRouter = Router();
 
@@ -131,8 +132,8 @@ estoqueRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || 'Sistema Automático',
             action: 'produto_criado',
             entity_type: 'produto',
             entity_id: sku,
@@ -151,10 +152,8 @@ estoqueRouter.post('/', async (req: Request, res: Response) => {
     } catch (error: any) {
         await client.query('ROLLBACK');
         console.error('Erro ao criar produto:', error);
-        if (error.code === '23505') {
-            return res.status(409).json({ error: 'Produto já existe' });
-        }
-        res.status(500).json({ error: 'Erro ao criar produto', details: error.message });
+        const errorResponse = formatErrorResponse(error, 'produto');
+        res.status(errorResponse.statusCode).json(errorResponse);
     } finally {
         client.release();
     }
@@ -226,7 +225,8 @@ estoqueRouter.put('/:sku', async (req: Request, res: Response) => {
     } catch (error: any) {
         await client.query('ROLLBACK');
         console.error('Erro ao atualizar produto:', error);
-        res.status(500).json({ error: 'Erro ao atualizar produto', details: error.message });
+        const errorResponse = formatErrorResponse(error, 'produto');
+        res.status(errorResponse.statusCode).json(errorResponse);
     } finally {
         client.release();
     }
@@ -262,8 +262,8 @@ estoqueRouter.delete('/:sku', async (req: Request, res: Response) => {
         // Registrar log de atividade
         try {
             await logActivity({
-                user_email: (req as any).user?.email || 'sistema',
-                user_name: (req as any).user?.nome || 'Sistema',
+                user_email: (req as any).user?.email || 'sistema@erp.local',
+                user_name: (req as any).user?.nome || 'Sistema Automático',
                 action: 'produto_excluido',
                 entity_type: 'produto',
                 entity_id: sku,
@@ -414,8 +414,8 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || 'Sistema Automático',
             action: 'entrada_produto',
             entity_type: 'produto',
             entity_id: sku,
@@ -473,8 +473,8 @@ estoqueRouter.patch('/:sku/quantidade', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || 'Sistema Automático',
             action: 'ajuste_quantidade_produto',
             entity_type: 'produto',
             entity_id: sku,

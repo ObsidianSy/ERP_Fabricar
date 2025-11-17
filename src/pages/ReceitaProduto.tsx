@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { consultarDados, gerarIdMateriaPrima } from "@/services/n8nIntegration";
 import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
+import { getErrorMessage } from '@/utils/errorHandler';
 
 interface Produto {
   SKU: string;
@@ -350,7 +351,8 @@ const ReceitaProduto = () => {
       carregarDados();
     } catch (error: any) {
       console.error("Erro ao salvar receita:", error);
-      toast.error("Erro ao salvar receita: " + error.message);
+      const errorMsg = getErrorMessage(error.response?.data || error);
+      toast.error(errorMsg);
     }
   };
 
@@ -420,7 +422,8 @@ const ReceitaProduto = () => {
       carregarDados();
     } catch (error: any) {
       console.error("Erro ao atualizar receita:", error);
-      toast.error("Erro ao atualizar receita: " + error.message);
+      const errorMsg = getErrorMessage(error.response?.data || error);
+      toast.error(errorMsg);
     }
   };
 
@@ -490,7 +493,8 @@ const ReceitaProduto = () => {
       carregarDados();
     } catch (error: any) {
       console.error("Erro ao salvar matéria-prima:", error);
-      toast.error("Erro ao salvar matéria-prima: " + error.message);
+      const errorMsg = getErrorMessage(error.response?.data || error);
+      toast.error(errorMsg);
     }
   };
 
@@ -503,7 +507,8 @@ const ReceitaProduto = () => {
       carregarDados();
     } catch (error: any) {
       console.error("Erro ao excluir matéria-prima:", error);
-      toast.error("Erro ao excluir matéria-prima: " + error.message);
+      const errorMsg = getErrorMessage(error.response?.data || error);
+      toast.error(errorMsg);
     }
   };
 

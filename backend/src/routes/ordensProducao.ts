@@ -72,8 +72,8 @@ ordensProducaoRouter.post('/', async (req: AuthRequest, res: Response) => {
         }
 
         // Obter email e nome do usuário do token JWT
-        const userEmail = req.user?.email || 'sistema';
-        const userName = req.user?.nome || 'Sistema';
+        const userEmail = req.user?.email || 'sistema@erp.local';
+        const userName = req.user?.nome || 'Sistema Automático';
 
         const op = await ordemProducaoService.criarOP({
             sku_produto,
@@ -120,8 +120,8 @@ ordensProducaoRouter.post('/:id/calcular-mp', async (req: AuthRequest, res: Resp
 ordensProducaoRouter.patch('/:id/iniciar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = req.user?.email || 'sistema';
-        const userName = req.user?.nome || 'Sistema';
+        const userEmail = req.user?.email || 'sistema@erp.local';
+        const userName = req.user?.nome || 'Sistema Automático';
 
         const op = await ordemProducaoService.iniciarOP(parseInt(id), userEmail);
         res.json(op);
@@ -138,8 +138,8 @@ ordensProducaoRouter.patch('/:id/iniciar', async (req: AuthRequest, res: Respons
 ordensProducaoRouter.patch('/:id/pausar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = req.user?.email || 'sistema';
-        const userName = req.user?.nome || 'Sistema';
+        const userEmail = req.user?.email || 'sistema@erp.local';
+        const userName = req.user?.nome || 'Sistema Automático';
 
         const op = await ordemProducaoService.pausarOP(parseInt(id), userEmail);
         res.json(op);
@@ -156,8 +156,8 @@ ordensProducaoRouter.patch('/:id/pausar', async (req: AuthRequest, res: Response
 ordensProducaoRouter.patch('/:id/retomar', async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const userEmail = req.user?.email || 'sistema';
-        const userName = req.user?.nome || 'Sistema';
+        const userEmail = req.user?.email || 'sistema@erp.local';
+        const userName = req.user?.nome || 'Sistema Automático';
 
         const op = await ordemProducaoService.retomarOP(parseInt(id), userEmail);
         res.json(op);
@@ -175,8 +175,8 @@ ordensProducaoRouter.patch('/:id/cancelar', async (req: AuthRequest, res: Respon
     try {
         const { id } = req.params;
         const { motivo } = req.body;
-        const userEmail = req.user?.email || 'sistema';
-        const userName = req.user?.nome || 'Sistema';
+        const userEmail = req.user?.email || 'sistema@erp.local';
+        const userName = req.user?.nome || 'Sistema Automático';
 
         const op = await ordemProducaoService.cancelarOP(parseInt(id), motivo, userEmail);
         res.json(op);

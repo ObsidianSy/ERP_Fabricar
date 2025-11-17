@@ -16,6 +16,17 @@ export interface ActivityLogData {
  */
 export async function logActivity(data: ActivityLogData): Promise<void> {
     try {
+        // Debug temporário: quando o usuário for o fallback do sistema, registrar um aviso
+        const email = (data.user_email || '').toString();
+        const isSistemaFallback = !email || /sistema/i.test(email) || email === 'sistema@erp.local';
+
+        if (isSistemaFallback) {
+            const stack = new Error().stack || '';
+            console.warn('⚠️ logActivity chamado com fallback de usuário (sistema). Verifique caller:');
+            console.warn('  user_email:', data.user_email, 'user_name:', data.user_name, 'action:', data.action, 'entity:', data.entity_type, 'id:', data.entity_id);
+            console.warn('  Stack (top 6 linhas):\n', stack.split('\n').slice(0, 6).join('\n'));
+        }
+
         await pool.query(
             `INSERT INTO obsidian.activity_logs 
              (user_email, user_name, action, entity_type, entity_id, details, ip_address, user_agent, created_at)

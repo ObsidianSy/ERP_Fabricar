@@ -62,7 +62,8 @@ clientesRouter.post('/', async (req: Request, res: Response) => {
         res.status(201).json(result.rows[0]);
     } catch (error: any) {
         console.error('Erro ao criar/atualizar cliente:', error);
-        res.status(500).json({ error: 'Erro ao criar/atualizar cliente' });
+        const errorResponse = formatErrorResponse(error, 'cliente');
+        res.status(errorResponse.statusCode).json(errorResponse);
     }
 });
 

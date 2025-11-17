@@ -77,7 +77,8 @@ router.post('/', checkAdmin, async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Erro ao criar usuário:', error);
-        res.status(500).json({ error: 'Erro ao criar usuário' });
+        const errorResponse = formatErrorResponse(error, 'criar usuário');
+        res.status(errorResponse.statusCode).json(errorResponse);
     }
 });
 

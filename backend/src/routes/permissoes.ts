@@ -215,8 +215,8 @@ router.post('/usuario/:usuarioId', requireAuth, async (req: AuthRequest, res: Re
 
         // Log da atividade
         await logActivity({
-            user_email: req.user?.email || 'sistema',
-            user_name: req.user?.nome || 'Sistema',
+            user_email: req.user?.email || 'sistema@erp.local',
+            user_name: req.user?.nome || 'Sistema Automático',
             action: 'CONCEDER_PERMISSOES',
             entity_type: 'usuarios_permissoes',
             entity_id: usuarioId,
@@ -293,8 +293,8 @@ router.delete('/usuario/:usuarioId/:permissaoId', requireAuth, async (req: AuthR
 
         // Log da atividade
         await logActivity({
-            user_email: req.user?.email || 'sistema',
-            user_name: req.user?.nome || 'Sistema',
+            user_email: req.user?.email || 'sistema@erp.local',
+            user_name: req.user?.nome || 'Sistema Automático',
             action: 'REVOGAR_PERMISSAO',
             entity_type: 'usuarios_permissoes',
             entity_id: usuarioId,
@@ -355,8 +355,8 @@ router.delete('/usuario/:usuarioId/todas', requireAuth, async (req: AuthRequest,
 
         // Log da atividade
         await logActivity({
-            user_email: req.user?.email || 'sistema',
-            user_name: req.user?.nome || 'Sistema',
+            user_email: req.user?.email || 'sistema@erp.local',
+            user_name: req.user?.nome || 'Sistema Automático',
             action: 'REVOGAR_TODAS_PERMISSOES',
             entity_type: 'usuarios_permissoes',
             entity_id: usuarioId,

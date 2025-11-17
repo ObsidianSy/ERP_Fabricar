@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
 import { logActivity } from '../services/activityLogger';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 export const receitaProdutoRouter = Router();
 
@@ -133,8 +134,8 @@ receitaProdutoRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || 'Sistema Automático',
             action: 'receita_produto_criada_atualizada',
             entity_type: 'receita_produto',
             entity_id: sku_produto,
@@ -148,12 +149,8 @@ receitaProdutoRouter.post('/', async (req: Request, res: Response) => {
     } catch (error: any) {
         await client.query('ROLLBACK');
         console.error(`❌ Erro ao salvar receita do produto ${req.body.sku_produto}:`, error.message);
-        console.error('Stack:', error.stack);
-        res.status(500).json({
-            error: 'Erro ao salvar receita',
-            details: error.message,
-            sku: req.body.sku_produto
-        });
+        const errorResponse = formatErrorResponse(error, 'receita do produto');
+        res.status(errorResponse.statusCode).json(errorResponse);
     } finally {
         client.release();
     }
@@ -175,8 +172,8 @@ receitaProdutoRouter.delete('/:sku', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || 'Sistema Automático',
             action: 'receita_produto_excluida',
             entity_type: 'receita_produto',
             entity_id: sku,

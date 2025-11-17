@@ -903,8 +903,8 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
                 const clientName = clientNameResult.rows[0]?.nome || `ID ${clientIdNum}`;
 
                 await logActivity({
-                    user_email: req.body.user_email || 'sistema',
-                    user_name: req.body.user_name || 'Sistema',
+                    user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                    user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                     action: 'upload_full',
                     entity_type: 'envio',
                     entity_id: envioId.toString(),
@@ -1513,8 +1513,8 @@ enviosRouter.post('/', upload.single('file'), async (req: MulterRequest, res: Re
             // Registrar log de atividade
             try {
                 await logActivity({
-                    user_email: req.body.user_email || 'sistema',
-                    user_name: req.body.user_name || 'Sistema',
+                    user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                    user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                     action: 'upload_ml',
                     entity_type: 'import_batch',
                     entity_id: batchId,
@@ -2058,8 +2058,8 @@ enviosRouter.post('/relacionar', async (req: Request, res: Response) => {
             // Registrar log de atividade
             try {
                 await logActivity({
-                    user_email: req.body.user_email || 'sistema',
-                    user_name: req.body.user_name || 'Sistema',
+                    user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                    user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                     action: 'auto_relate',
                     entity_type: source === 'FULL' ? 'envio' : 'pedidos',
                     entity_id: source === 'FULL' ? envio_id : (client_id || 'all'),
@@ -2207,8 +2207,8 @@ enviosRouter.post('/relacionar-manual', async (req: Request, res: Response) => {
         // Registrar log de atividade
         try {
             await logActivity({
-                user_email: req.body.user_email || 'sistema',
-                user_name: req.body.user_name || 'Sistema',
+                user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                 action: 'relate_manual',
                 entity_type: 'full_envio_raw',
                 entity_id: raw_id.toString(),
@@ -2429,8 +2429,8 @@ enviosRouter.post('/match-line', async (req: Request, res: Response) => {
         // Registrar log de atividade
         try {
             await logActivity({
-                user_email: req.body.user_email || 'sistema',
-                user_name: req.body.user_name || 'Sistema',
+                user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                 action: 'relate_item',
                 entity_type: 'full_raw',
                 entity_id: raw_id.toString(),
@@ -2714,8 +2714,8 @@ enviosRouter.post('/emitir-vendas', async (req: Request, res: Response) => {
             // Registrar log de atividade
             try {
                 await logActivity({
-                    user_email: req.body.user_email || 'sistema',
-                    user_name: req.body.user_name || 'Sistema',
+                    user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                    user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                     action: 'emit_sales',
                     entity_type: 'envio',
                     entity_id: envio_id.toString(),
@@ -3053,8 +3053,8 @@ enviosRouter.post('/emitir-vendas', async (req: Request, res: Response) => {
                 }
 
                 await logActivity({
-                    user_email: req.body.user_email || 'sistema',
-                    user_name: req.body.user_name || 'Sistema',
+                    user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+                    user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
                     action: 'emit_sales_ml',
                     entity_type: 'pedidos',
                     entity_id: finalImportId,

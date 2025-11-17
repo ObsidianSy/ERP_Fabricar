@@ -27,6 +27,7 @@ export async function authMiddleware(
 
         if (!token) {
             // Se não tem token, continua sem user (para rotas opcionais)
+            console.log('⚠️ Requisição sem token:', req.method, req.path);
             return next();
         }
 
@@ -49,11 +50,15 @@ export async function authMiddleware(
                 email: result.rows[0].email,
                 cargo: result.rows[0].cargo
             };
+            console.log('✅ Usuário autenticado:', req.user.nome, '-', req.method, req.path);
+        } else {
+            console.log('⚠️ Token válido mas usuário não encontrado ou inativo');
         }
 
         next();
     } catch (error: any) {
         // Token inválido, continua sem user
+        console.log('❌ Erro ao validar token:', error.message);
         next();
     }
 }

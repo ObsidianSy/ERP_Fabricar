@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../database/db';
 import { logActivity } from '../services/activityLogger';
+import { formatErrorResponse } from '../utils/errorTranslator';
 
 export const materiaPrimaRouter = Router();
 
@@ -70,8 +71,8 @@ materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
 
         // Log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
             action: 'entrada_materia_prima',
             entity_type: 'materia_prima',
             entity_id: sku_mp,
@@ -138,8 +139,8 @@ materiaPrimaRouter.post('/', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
             action: 'materia_prima_criada',
             entity_type: 'materia_prima',
             entity_id: sku_mp,
@@ -154,10 +155,8 @@ materiaPrimaRouter.post('/', async (req: Request, res: Response) => {
         res.status(201).json(result.rows[0]);
     } catch (error: any) {
         console.error('Erro ao criar matéria-prima:', error);
-        if (error.code === '23505') {
-            return res.status(409).json({ error: 'Matéria-prima já existe' });
-        }
-        res.status(500).json({ error: 'Erro ao criar matéria-prima' });
+        const errorResponse = formatErrorResponse(error, 'matéria-prima');
+        res.status(errorResponse.statusCode).json(errorResponse);
     }
 });
 
@@ -204,8 +203,8 @@ materiaPrimaRouter.put('/:sku', async (req: Request, res: Response) => {
         }
 
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
             action: isUpdate ? 'materia_prima_atualizada' : 'materia_prima_criada',
             entity_type: 'materia_prima',
             entity_id: sku,
@@ -237,8 +236,8 @@ materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
             action: 'materia_prima_excluida',
             entity_type: 'materia_prima',
             entity_id: sku,
@@ -297,8 +296,8 @@ materiaPrimaRouter.post('/entrada', async (req: Request, res: Response) => {
 
         // Registrar log de atividade
         await logActivity({
-            user_email: (req as any).user?.email || req.body.user_email || 'sistema',
-            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema',
+            user_email: (req as any).user?.email || req.body.user_email || 'sistema@erp.local',
+            user_name: (req as any).user?.nome || req.body.user_name || 'Sistema Automático',
             action: 'entrada_materia_prima',
             entity_type: 'materia_prima',
             entity_id: sku_mp,
