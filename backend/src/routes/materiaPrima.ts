@@ -220,15 +220,50 @@ materiaPrimaRouter.put('/:sku', async (req: Request, res: Response) => {
 
 // DELETE - Excluir matéria-prima
 materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
+    const client = await pool.connect();
     try {
         const { sku } = req.params;
 
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        // Verifica se a matéria-prima existe
+        const mpCheck = await client.query(
+            'SELECT sku_mp, nome FROM obsidian.materia_prima WHERE sku_mp = $1',
+            [sku]
+        );
+
+        if (mpCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Matéria-prima não encontrada' });
+        }
+
+        const mp = mpCheck.rows[0];
+
+        // Verifica se está em uso em receitas de produto
+        const receitasCheck = await client.query(
+            'SELECT COUNT(*) as total FROM obsidian.receita_produto WHERE sku_mp = $1',
+            [sku]
+        );
+
+        const receitasTotal = parseInt(receitasCheck.rows[0].total, 10);
+        if (receitasTotal > 0) {
+            await client.query('ROLLBACK');
+            const msg = `A matéria-prima "${mp.nome}" (SKU ${sku}) está sendo usada em ${receitasTotal} receita(s) de produto.`;
+            // Log claro para debugging e auditoria rápida no console
+            console.warn(`[Excluir MP bloqueada] SKU=${sku} nome="${mp.nome}": ${msg}`);
+            return res.status(409).json({ error: 'Não é possível excluir esta matéria-prima', message: msg });
+        }
+
+        // Se quiserem, podemos bloquear também se houver histórico de consumo. Aqui apenas deletamos fotos e a MP.
+        await client.query('DELETE FROM obsidian.materia_prima_fotos WHERE sku_mp = $1', [sku]);
+
+        const result = await client.query(
             'DELETE FROM obsidian.materia_prima WHERE sku_mp = $1 RETURNING *',
             [sku]
         );
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Matéria-prima não encontrada' });
         }
 
@@ -249,10 +284,15 @@ materiaPrimaRouter.delete('/:sku', async (req: Request, res: Response) => {
             }
         });
 
+        await client.query('COMMIT');
         res.json({ message: 'Matéria-prima excluída com sucesso' });
-    } catch (error) {
+    } catch (error: any) {
+        await client.query('ROLLBACK');
         console.error('Erro ao excluir matéria-prima:', error);
-        res.status(500).json({ error: 'Erro ao excluir matéria-prima' });
+        const errorResponse = formatErrorResponse(error, 'matéria-prima');
+        res.status(errorResponse.statusCode).json(errorResponse);
+    } finally {
+        client.release();
     }
 });
 
