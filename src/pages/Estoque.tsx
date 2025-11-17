@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { ProductsDataTable } from "@/components/tables/ProductsDataTable";
 import { RawMaterialsDataTable } from "@/components/tables/RawMaterialsDataTable";
-import { Plus, Package, RefreshCw, Settings, ArrowUp, MoreHorizontal, TrendingUp, TrendingDown, AlertTriangle, Download, Upload, Camera } from "lucide-react";
+import { Plus, Package, RefreshCw, Settings, ArrowUp, MoreHorizontal, TrendingUp, TrendingDown, AlertTriangle, Download, Upload, Camera, History } from "lucide-react";
 import { toast } from "sonner";
 import { consultarDados } from "@/services/n8nIntegration";
 import ProdutoForm from "@/components/forms/ProdutoForm";
@@ -590,6 +590,16 @@ const Estoque = () => {
             >
               <Download className="w-4 h-4" />
               Exportar Excel
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/historico-entradas')}
+              className="gap-2"
+            >
+              <History className="w-4 h-4" />
+              Histórico Entradas
             </Button>
 
             <Dialog>

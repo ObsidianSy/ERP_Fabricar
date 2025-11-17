@@ -19,6 +19,7 @@ import materiaPrimaFotosRouter from './routes/materia-prima-fotos';
 import usuariosRouter from './routes/usuarios';
 import permissoesRouter from './routes/permissoes';
 import financeiroRouter from './routes/financeiro';
+import historicoEntradasRouter from './routes/historicoEntradas';
 import { startCleanupTask } from './tasks/cleanupActivityLogs';
 
 // Carrega variáveis de ambiente
@@ -90,6 +91,7 @@ app.use('/api/activity', activityRouter);
 app.use('/api/devolucoes', devolucoesRouter);
 app.use('/api/produto-fotos', produtoFotosRouter);
 app.use('/api/materia-prima-fotos', materiaPrimaFotosRouter);
+app.use('/api/historico-entradas', historicoEntradasRouter);
 
 // Serve arquivos estáticos de upload com CORS
 const uploadsPath = path.join(__dirname, '..', 'uploads');

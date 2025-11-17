@@ -71,6 +71,16 @@ const data = {
       url: "/estoque",
       icon: Package,
       permissao: "estoque.visualizar",
+      items: [
+        {
+          title: "Gerenciar Estoque",
+          url: "/estoque",
+        },
+        {
+          title: "Histórico de Entradas",
+          url: "/historico-entradas",
+        },
+      ],
     },
     {
       title: "Vendas",

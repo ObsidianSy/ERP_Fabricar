@@ -260,24 +260,40 @@ const mapDataToApi = (data: any, sheetName: string): any => {
   }
 };
 
-// Função para consultar dados da API por sheetName
-export const consultarDados = async (sheetName: string): Promise<any[]> => {
+// Função para consultar dados da API por sheetName ou URL customizada
+export const consultarDados = async (sheetNameOrPath: string): Promise<any> => {
   try {
     const baseUrl = getApiUrl();
-    const endpoint = SHEET_TO_ENDPOINT[sheetName];
+    let url: string;
 
-    if (!endpoint) {
-      console.error(`Endpoint não encontrado para ${sheetName}`);
-      return [];
+    // Se começa com /, é uma URL customizada (ex: /historico-entradas?page=1)
+    if (sheetNameOrPath.startsWith('/')) {
+      url = `${baseUrl}${sheetNameOrPath}`;
+    } else {
+      // Caso contrário, é um sheetName que precisa de mapeamento
+      const endpoint = SHEET_TO_ENDPOINT[sheetNameOrPath];
+
+      if (!endpoint) {
+        console.error(`Endpoint não encontrado para ${sheetNameOrPath}`);
+        return [];
+      }
+
+      url = `${baseUrl}/${endpoint}`;
     }
 
-    const url = `${baseUrl}/${endpoint}`;
+    // Pegar token de autenticação
+    const token = localStorage.getItem('token');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -286,8 +302,13 @@ export const consultarDados = async (sheetName: string): Promise<any[]> => {
 
     const data = await response.json();
 
+    // Para URLs customizadas, retornar dados como estão (sem mapeamento)
+    if (sheetNameOrPath.startsWith('/')) {
+      return data;
+    }
+
     // Mapeia dados da API para formato esperado pelo frontend
-    const mappedData = mapApiDataToFrontend(data, sheetName);
+    const mappedData = mapApiDataToFrontend(data, sheetNameOrPath);
 
     // Se retornar um objeto único, transformar em array
     if (mappedData && !Array.isArray(mappedData) && typeof mappedData === 'object') {
@@ -297,7 +318,7 @@ export const consultarDados = async (sheetName: string): Promise<any[]> => {
     // Se retornar array, usar como está
     return Array.isArray(mappedData) ? mappedData : [];
   } catch (error) {
-    console.error(`Erro ao consultar ${sheetName}:`, error);
+    console.error(`Erro ao consultar ${sheetNameOrPath}:`, error);
     throw error; // Re-throw para permitir tratamento upstream
   }
 };

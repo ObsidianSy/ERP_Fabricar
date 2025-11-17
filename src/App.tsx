@@ -30,6 +30,7 @@ import GerenciarFotos from "./pages/GerenciarFotos";
 import UserManagement from "./pages/UserManagement";
 import Permissoes from "./pages/admin/Permissoes";
 import Login from "./pages/Login";
+import HistoricoEntradas from "./pages/HistoricoEntradas";
 // Financeiro
 import Contas from "./pages/financeiro/Contas";
 import Cartoes from "./pages/financeiro/Cartoes";
@@ -67,6 +68,7 @@ const App = () => (
                   <Route path="/estoque/novo" element={<PrivateRoute><EstoqueProduto /></PrivateRoute>} />
                   <Route path="/estoque/editar/:id" element={<PrivateRoute><EstoqueProduto /></PrivateRoute>} />
                   <Route path="/estoque/entrada" element={<PrivateRoute><Estoque /></PrivateRoute>} />
+                  <Route path="/historico-entradas" element={<PrivateRoute><HistoricoEntradas /></PrivateRoute>} />
 
                   {/* Rotas de Vendas */}
                   <Route path="/vendas" element={<PrivateRoute><Vendas /></PrivateRoute>} />

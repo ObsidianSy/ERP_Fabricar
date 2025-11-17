@@ -370,11 +370,11 @@ estoqueRouter.post('/entrada', async (req: Request, res: Response) => {
             }
         }
 
-        // Registrar movimento de estoque
+        // Registrar movimento de estoque (sempre usar 'producao' para entrada de produto)
         await client.query(
             `INSERT INTO obsidian.estoque_movimentos (sku, tipo, quantidade, origem_tabela, origem_id, observacao)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [sku, tipo_entrada || origem_tabela || 'manual', quantidade, origem_tabela || 'manual', origem_id, observacao]
+            [sku, 'producao', quantidade, origem_tabela || 'manual', origem_id, observacao]
         );
 
         // Atualizar quantidade atual do produto
