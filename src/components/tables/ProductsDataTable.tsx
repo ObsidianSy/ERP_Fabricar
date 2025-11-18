@@ -38,8 +38,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
-import { Edit, Trash2, MoreHorizontal, Package, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Edit, Trash2, MoreHorizontal, Package, Search, ArrowUp } from "lucide-react";
 import { excluirProduto } from "@/services/n8nIntegration";
+import EntradaProdutoForm from "@/components/forms/EntradaProdutoForm";
+import EntradaMateriaPrimaForm from "@/components/forms/EntradaMateriaPrimaForm";
 import { toast } from "sonner";
 import { formatCurrencyAbbreviated, formatQuantity } from "@/utils/formatters";
 import { sortBySKU } from "@/utils/sortUtils";
@@ -157,6 +160,39 @@ const ProductsDataTableComponent = ({
           <Badge variant="outline" className="px-3 py-1">
             {filteredProducts.length} produtos
           </Badge>
+          
+          {/* Botões de entrada rápida */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2 border-green-500/50 text-green-600 hover:bg-green-500/10"
+              >
+                <ArrowUp className="w-4 h-4" />
+                Entrada Produto
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <EntradaProdutoForm onSuccess={onRefresh} />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2 border-blue-500/50 text-blue-600 hover:bg-blue-500/10"
+              >
+                <ArrowUp className="w-4 h-4" />
+                Entrada MP
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <EntradaMateriaPrimaForm onSuccess={onRefresh} />
+            </DialogContent>
+          </Dialog>
         </div>
 
         <Card>
