@@ -28,6 +28,7 @@ interface VendaFormProps {
 interface Cliente {
   "ID Cliente": string;
   "Cliente": string;
+  "is_cliente_drop"?: boolean; // Flag para Cliente Drop
 }
 
 interface Produto {
@@ -70,8 +71,9 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
     try {
       const dados = await consultarClientes();
       const clientesFormatados = dados.map((item: any) => ({
-        "ID Cliente": item["ID Cliente"] || "",
-        "Cliente": item["Nome"] || item["Cliente"] || ""
+        "ID Cliente": item["ID Cliente"] || item.id || "",
+        "Cliente": item["Nome"] || item["Cliente"] || "",
+        "is_cliente_drop": item.is_cliente_drop || false // Buscar flag do backend
       }));
       setClientes(clientesFormatados.filter(c => c["Cliente"].trim() !== ""));
     } catch (error) {
@@ -104,6 +106,17 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
       ...prev,
       "Nome Cliente": clienteNome
     }));
+
+    // Buscar flag Cliente Drop e aplicar automaticamente
+    const clienteSelecionado = clientes.find(c => c.Cliente === clienteNome);
+    if (clienteSelecionado && clienteSelecionado.is_cliente_drop) {
+      setIsClienteDrop(true);
+      toast.info('Cliente Drop detectado', {
+        description: 'Acréscimo de R$5/item será aplicado automaticamente'
+      });
+    } else {
+      setIsClienteDrop(false);
+    }
   };
 
   const handleSelectProduto = (sku: string) => {
@@ -455,21 +468,18 @@ const VendaForm = ({ onSuccess }: VendaFormProps) => {
             </div>
           </div>
 
-          {/* Flag Cliente DROP */}
-          <div className="flex items-center justify-between p-3 bg-muted/10 border border-border/30 rounded-lg">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={isClienteDrop}
-                onCheckedChange={(val) => setIsClienteDrop(Boolean(val))}
-                aria-label="Cliente DROP"
-              />
-              <div>
-                <div className="text-sm font-medium">Cliente DROP</div>
-                <div className="text-xs text-muted-foreground">Aplica <span className="font-semibold">R$ 5,00</span> ao preço unitário de cada produto</div>
+          {/* Flag Cliente DROP - Apenas exibição, não editável manualmente */}
+          {isClienteDrop && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div>
+                  <div className="text-sm font-medium text-blue-800">Cliente DROP Ativo</div>
+                  <div className="text-xs text-blue-600">Acréscimo de <span className="font-semibold">R$ 5,00</span> por produto aplicado automaticamente</div>
+                </div>
               </div>
+              <Badge variant="outline" className="text-blue-600 border-blue-600">+R$ 5 / item</Badge>
             </div>
-            <Badge variant="outline" className="text-blue-600 border-blue-200">+R$ 5 / item</Badge>
-          </div>
+          )}
 
           {/* Adicionar itens */}
           <div className="space-y-4">

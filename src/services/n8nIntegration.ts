@@ -26,6 +26,7 @@ export interface ClienteData {
   "Total Comprado"?: number;
   "Total Pago"?: number;
   "Total atual"?: number;
+  "is_cliente_drop"?: boolean; // Flag para adicionar +R$5 por produto
 }
 
 export interface PagamentoData {
@@ -337,7 +338,8 @@ const mapApiDataToFrontend = (data: any[], sheetName: string): any[] => {
         'Observações': item.observacoes,
         'Total Comprado': item.total_comprado || 0,
         'Total Pago': item.total_pago || 0,
-        'Total atual': item.total_atual || 0
+        'Total atual': item.total_atual || 0,
+        'is_cliente_drop': item.is_cliente_drop || false // Flag Cliente Drop
       }));
 
     case 'Estoque':
@@ -579,4 +581,26 @@ export const gerarIdReceitaFinanceira = (): string => {
   const data = new Date().toISOString().split('T')[0].replace(/-/g, '');
   const timestamp = Date.now().toString().slice(-3);
   return `RECFIN-${data}-${timestamp}`;
+};
+
+// Atualizar flag Cliente Drop
+export const atualizarClienteDrop = async (clienteId: string, isClienteDrop: boolean): Promise<boolean> => {
+  try {
+    const response = await fetch(`${getBaseApiUrl('/api')}/clientes/${clienteId}/drop`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ is_cliente_drop: isClienteDrop })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao atualizar Cliente Drop: ${response.statusText}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erro ao atualizar flag Cliente Drop:', error);
+    return false;
+  }
 };

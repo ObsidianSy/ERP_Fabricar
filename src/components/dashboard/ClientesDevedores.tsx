@@ -1,15 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { AlertTriangle, Phone, Mail } from 'lucide-react';
 import { formatCurrencyAbbreviated } from '@/utils/formatters';
+import { atualizarClienteDrop } from '@/services/n8nIntegration';
+import { toast } from 'sonner';
 interface Cliente {
   "ID Cliente": string;
   "Nome": string;
   "Documento": string;
   "Telefone": string;
   "Email": string;
+  "is_cliente_drop"?: boolean; // Flag para Cliente Drop
 }
 interface Pagamento {
   "Data Pagamento": string;
@@ -37,14 +41,18 @@ export const ClientesDevedores = ({
   vendas,
   clientes
 }: ClientesDevedoresProps) => {
+  const [loadingClienteId, setLoadingClienteId] = useState<string | null>(null);
+
   const clientesDevedores = useMemo(() => {
-    // Calcular total de vendas por cliente
+    // Calcular total de vendas por cliente (considerando +R$5 se Cliente Drop)
     const vendasPorCliente = vendas.reduce((acc, venda) => {
       const cliente = venda["Nome Cliente"];
       if (!acc[cliente]) acc[cliente] = 0;
+      
       const valor = typeof venda["Valor Total"] === 'string'
         ? parseFloat(venda["Valor Total"]) || 0
         : venda["Valor Total"] || 0;
+      
       acc[cliente] += valor;
       return acc;
     }, {} as Record<string, number>);
@@ -72,12 +80,33 @@ export const ClientesDevedores = ({
         totalComprado,
         totalPago,
         saldo,
-        percentualPago: totalComprado > 0 ? totalPago / totalComprado * 100 : 0
+        percentualPago: totalComprado > 0 ? totalPago / totalComprado * 100 : 0,
+        isClienteDrop: clienteInfo?.is_cliente_drop || false, // Flag Cliente Drop
+        clienteId: clienteInfo?.["ID Cliente"] || null
       };
     }).filter(cliente => cliente.saldo > 0).sort((a, b) => b.saldo - a.saldo).slice(0, 10); // Top 10 devedores
 
     return devedores;
   }, [pagamentos, vendas, clientes]);
+
+  const handleToggleDrop = async (clienteId: string, nomeCliente: string, isCurrentlyDrop: boolean) => {
+    setLoadingClienteId(clienteId);
+    try {
+      const success = await atualizarClienteDrop(clienteId, !isCurrentlyDrop);
+      if (success) {
+        toast.success(`${nomeCliente} ${!isCurrentlyDrop ? 'marcado' : 'desmarcado'} como Cliente Drop`);
+        // Força recarregar página para atualizar dados
+        window.location.reload();
+      } else {
+        toast.error('Erro ao atualizar Cliente Drop');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar Cliente Drop:', error);
+      toast.error('Erro ao atualizar Cliente Drop');
+    } finally {
+      setLoadingClienteId(null);
+    }
+  };
   const getSeverityColor = (percentualPago: number) => {
     if (percentualPago === 0) return 'destructive';
     if (percentualPago < 50) return 'secondary';
@@ -121,7 +150,27 @@ export const ClientesDevedores = ({
                   <Badge variant={getSeverityColor(cliente.percentualPago)} className="text-xs">
                     {getSeverityText(cliente.percentualPago)}
                   </Badge>
+                  {cliente.isClienteDrop && (
+                    <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
+                      DROP
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Toggle Cliente Drop */}
+                {cliente.clienteId && (
+                  <div className="flex items-center gap-2 mb-2 p-2 bg-muted/20 rounded-md">
+                    <Switch
+                      checked={cliente.isClienteDrop}
+                      onCheckedChange={() => handleToggleDrop(cliente.clienteId!, cliente.nome, cliente.isClienteDrop)}
+                      disabled={loadingClienteId === cliente.clienteId}
+                      aria-label="Cliente Drop"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {cliente.isClienteDrop ? 'Cliente Drop ativo (+R$5/item)' : 'Ativar Cliente Drop'}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>

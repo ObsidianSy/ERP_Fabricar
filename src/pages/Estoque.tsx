@@ -19,7 +19,7 @@ import EntradaProdutoForm from "@/components/forms/EntradaProdutoForm";
 import EntradaMateriaPrimaForm from "@/components/forms/EntradaMateriaPrimaForm";
 import { API_BASE_URL } from "@/config/api";
 
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProductDetailsModal } from "@/components/ProductDetailsModal";
 import { formatCurrency, formatQuantity, formatNumber } from "@/utils/formatters";
@@ -558,6 +558,179 @@ const Estoque = () => {
               <Camera className="w-4 h-4" />
               Gerenciar Fotos
             </Button>
+
+            {/* Botão de Ajuda para Importação */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-2 border-blue-300 hover:bg-blue-50">
+                  <Upload className="w-4 h-4 text-blue-600" />
+                  <span className="text-blue-600 font-medium">Formato Excel</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader className="pb-4 border-b">
+                  <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                      <Upload className="w-5 h-5 text-white" />
+                    </div>
+                    Formato da Planilha Excel
+                  </DialogTitle>
+                  <DialogDescription className="text-base">
+                    Guia completo para importar e atualizar produtos via Excel
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5 py-4">
+                  {/* Seção: Nome da Aba */}
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-5 rounded-xl border border-purple-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 bg-purple-600 rounded-md">
+                        <Package className="w-4 h-4 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg text-purple-900">Aba: "Estoque"</h3>
+                      <Badge className="bg-purple-600">Produtos Acabados</Badge>
+                    </div>
+                    <p className="text-sm text-purple-700">Use esta aba para produtos finais prontos para venda</p>
+                  </div>
+
+                  {/* Seção: Colunas */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Obrigatórias */}
+                    <div className="bg-red-50 p-4 rounded-xl border-2 border-red-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
+                        <h4 className="font-bold text-red-900">Obrigatórias</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5"></div>
+                          <div>
+                            <code className="bg-red-100 px-2 py-1 rounded text-sm font-semibold text-red-900">SKU</code>
+                            <p className="text-xs text-red-700 mt-1">Código único do produto</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5"></div>
+                          <div>
+                            <code className="bg-red-100 px-2 py-1 rounded text-sm font-semibold text-red-900">Nome Produto</code>
+                            <p className="text-xs text-red-700 mt-1">Nome/descrição</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Opcionais */}
+                    <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Settings className="w-5 h-5 text-blue-600" />
+                        <h4 className="font-bold text-blue-900">Opcionais (Atualizáveis)</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2 bg-yellow-100 p-2 rounded-lg border border-yellow-300">
+                          <TrendingUp className="w-4 h-4 text-yellow-700 mt-0.5" />
+                          <div>
+                            <code className="bg-yellow-200 px-2 py-1 rounded text-sm font-bold text-yellow-900">Preço Unitário</code>
+                            <p className="text-xs text-yellow-800 mt-1 font-medium">⭐ Atualiza o preço</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                          <code className="bg-blue-100 px-2 py-1 rounded text-xs font-medium text-blue-900">Quantidade Atual</code>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                          <code className="bg-blue-100 px-2 py-1 rounded text-xs font-medium text-blue-900">Categoria</code>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                          <code className="bg-blue-100 px-2 py-1 rounded text-xs font-medium text-blue-900">Tipo Produto</code>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                          <code className="bg-blue-100 px-2 py-1 rounded text-xs font-medium text-blue-900">Unidade de Medida</code>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Como Funciona */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border-2 border-green-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 bg-green-600 rounded-md">
+                        <Settings className="w-4 h-4 text-white" />
+                      </div>
+                      <h4 className="font-bold text-lg text-green-900">Como funciona</h4>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="flex items-start gap-3 bg-white p-3 rounded-lg">
+                        <div className="p-1.5 bg-blue-100 rounded-md shrink-0">
+                          <RefreshCw className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">SKU já existe</p>
+                          <p className="text-xs text-gray-600">→ <strong>ATUALIZA</strong> os dados (incluindo preço)</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 bg-white p-3 rounded-lg">
+                        <div className="p-1.5 bg-green-100 rounded-md shrink-0">
+                          <Plus className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">SKU não existe</p>
+                          <p className="text-xs text-gray-600">→ <strong>CRIA</strong> novo produto</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 bg-white p-3 rounded-lg">
+                        <div className="p-1.5 bg-gray-100 rounded-md shrink-0">
+                          <AlertTriangle className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Campos em branco</p>
+                          <p className="text-xs text-gray-600">→ <strong>NÃO ALTERA</strong> (mantém valor anterior)</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Exemplo */}
+                  <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-5 rounded-xl border-2 border-orange-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 bg-orange-600 rounded-md">
+                        <Package className="w-4 h-4 text-white" />
+                      </div>
+                      <h4 className="font-bold text-lg text-orange-900">Exemplo de planilha</h4>
+                    </div>
+                    <div className="overflow-x-auto bg-white rounded-lg shadow-inner">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gradient-to-r from-orange-100 to-yellow-100">
+                            <th className="border border-orange-300 px-4 py-2 text-left font-bold text-orange-900">SKU</th>
+                            <th className="border border-orange-300 px-4 py-2 text-left font-bold text-orange-900">Nome Produto</th>
+                            <th className="border border-orange-300 px-4 py-2 text-right font-bold text-orange-900">Preço Unitário</th>
+                            <th className="border border-orange-300 px-4 py-2 text-right font-bold text-orange-900">Quantidade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="hover:bg-orange-50 transition-colors">
+                            <td className="border border-orange-200 px-4 py-2 font-mono text-gray-700">ATR-001</td>
+                            <td className="border border-orange-200 px-4 py-2 text-gray-700">Aterrorizador Azul</td>
+                            <td className="border border-orange-200 px-4 py-2 text-right font-bold text-green-700">R$ 45,50</td>
+                            <td className="border border-orange-200 px-4 py-2 text-right text-gray-700">100</td>
+                          </tr>
+                          <tr className="hover:bg-orange-50 transition-colors">
+                            <td className="border border-orange-200 px-4 py-2 font-mono text-gray-700">CH-202</td>
+                            <td className="border border-orange-200 px-4 py-2 text-gray-700">Chinelo Preto</td>
+                            <td className="border border-orange-200 px-4 py-2 text-right font-bold text-green-700">R$ 32,00</td>
+                            <td className="border border-orange-200 px-4 py-2 text-right text-gray-700">50</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <div className="relative">
               <Input
                 type="file"

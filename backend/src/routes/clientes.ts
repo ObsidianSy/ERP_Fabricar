@@ -97,6 +97,35 @@ clientesRouter.put('/:id', async (req: Request, res: Response) => {
     }
 });
 
+// PATCH - Atualizar flag Cliente Drop
+clientesRouter.patch('/:id/drop', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { is_cliente_drop } = req.body;
+
+        if (typeof is_cliente_drop !== 'boolean') {
+            return res.status(400).json({ error: 'is_cliente_drop deve ser boolean' });
+        }
+
+        const result = await pool.query(
+            `UPDATE obsidian.clientes 
+       SET is_cliente_drop = $2
+       WHERE id = $1
+       RETURNING *`,
+            [id, is_cliente_drop]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Erro ao atualizar flag Cliente Drop:', error);
+        res.status(500).json({ error: 'Erro ao atualizar flag Cliente Drop' });
+    }
+});
+
 // DELETE - Excluir cliente
 clientesRouter.delete('/:id', async (req: Request, res: Response) => {
     try {

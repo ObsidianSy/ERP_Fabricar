@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
@@ -13,7 +14,7 @@ import { formatCurrencyAbbreviated, toNumber } from "@/utils/formatters";
 import { formatarDocumento, formatarTelefone } from "@/utils/validators";
 import { Edit, Plus, Search, Trash, Users, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { consultarClientes } from "@/services/n8nIntegration";
+import { consultarClientes, atualizarClienteDrop } from "@/services/n8nIntegration";
 import ClienteForm from "@/components/forms/ClienteForm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -29,6 +30,7 @@ interface Cliente {
   "Total Comprado": number;
   "Total Pago": number;
   "Total atual": number;
+  "is_cliente_drop"?: boolean; // Flag Cliente Drop
 }
 import { useApiDataWithFilters } from "@/hooks/useApiDataWithFilters";
 
@@ -36,6 +38,7 @@ const Clientes = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busca, setBusca] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingClienteId, setLoadingClienteId] = useState<string | null>(null); // Estado para toggle
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const navigate = useNavigate();
@@ -98,7 +101,8 @@ const Clientes = () => {
             "Observações": item["Observações"] || item.observacoes || '',
             "Total Comprado": toNumber(item["Total Comprado"]),
             "Total Pago": toNumber(item["Total Pago"]),
-            "Total atual": toNumber(item["Total atual"])
+            "Total atual": toNumber(item["Total atual"]),
+            "is_cliente_drop": item.is_cliente_drop || false // Flag Cliente Drop
           };
         });
         
@@ -145,6 +149,31 @@ const Clientes = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedBusca]);
+
+  // Função para alternar Cliente Drop
+  const handleToggleDrop = async (clienteId: string, nomeCliente: string, isCurrentlyDrop: boolean, event: React.MouseEvent) => {
+    event.stopPropagation(); // Impede navegação ao clicar no toggle
+    setLoadingClienteId(clienteId);
+    try {
+      const success = await atualizarClienteDrop(clienteId, !isCurrentlyDrop);
+      if (success) {
+        // Atualizar estado local sem recarregar página
+        setClientes(prev => prev.map(c => 
+          c["ID Cliente"] === clienteId 
+            ? { ...c, "is_cliente_drop": !isCurrentlyDrop }
+            : c
+        ));
+        toast.success(`${nomeCliente} ${!isCurrentlyDrop ? 'marcado' : 'desmarcado'} como Cliente Drop`);
+      } else {
+        toast.error('Erro ao atualizar Cliente Drop');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar Cliente Drop:', error);
+      toast.error('Erro ao atualizar Cliente Drop');
+    } finally {
+      setLoadingClienteId(null);
+    }
+  };
 
 
   return (
@@ -230,6 +259,7 @@ const Clientes = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
+                      <TableHead className="text-center">Cliente Drop</TableHead>
                       <TableHead>Documento</TableHead>
                       <TableHead>Telefone</TableHead>
                       <TableHead>Email</TableHead>
@@ -245,7 +275,16 @@ const Clientes = () => {
                       const totalCompradoAgregado = totalVendasPorCliente[key];
                       const totalPagoAgregado = totalPagamentosPorCliente[key];
 
-                      const totalComprado = (totalCompradoAgregado ?? toNumber(cliente["Total Comprado"])) || 0;
+                      // Calcular quantidade total de itens vendidos para esse cliente
+                      const vendasCliente = (vendas || []) as any[];
+                      const quantidadeTotalItens = vendasCliente
+                        .filter((v: any) => norm(v['Nome Cliente'] || v['Cliente']) === key)
+                        .reduce((total: number, v: any) => total + (toNumber(v['Quantidade Vendida']) || 0), 0);
+
+                      // Se Cliente Drop, adicionar R$5 por item ao total comprado
+                      const markupDrop = cliente["is_cliente_drop"] ? quantidadeTotalItens * 5 : 0;
+                      
+                      const totalComprado = ((totalCompradoAgregado ?? toNumber(cliente["Total Comprado"])) || 0) + markupDrop;
                       const totalPago = (totalPagoAgregado ?? toNumber(cliente["Total Pago"])) || 0;
                       const saldo = totalComprado - totalPago;
 
@@ -256,7 +295,33 @@ const Clientes = () => {
                           onClick={() => navigate(`/cliente/${cliente["ID Cliente"]}`)}
                         >
                           <TableCell className="font-medium">
-                            {cliente["Nome"]}
+                            <div className="flex items-center gap-2">
+                              {cliente["Nome"]}
+                              {cliente["is_cliente_drop"] && (
+                                <Badge variant="outline" className="text-xs text-blue-600 border-blue-600">
+                                  DROP
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <Switch
+                                checked={cliente["is_cliente_drop"]}
+                                onCheckedChange={(checked) => handleToggleDrop(
+                                  cliente["ID Cliente"], 
+                                  cliente["Nome"], 
+                                  cliente["is_cliente_drop"] || false,
+                                  { stopPropagation: () => {} } as any
+                                )}
+                                onClick={(e) => e.stopPropagation()}
+                                disabled={loadingClienteId === cliente["ID Cliente"]}
+                                aria-label="Cliente Drop"
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {cliente["is_cliente_drop"] ? '+R$5' : 'OFF'}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {cliente["Documento"] ? formatarDocumento(cliente["Documento"]) : '-'}
@@ -271,9 +336,16 @@ const Clientes = () => {
                             {cliente["Observações"] || '-'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Badge variant="outline" className="text-green-600 border-green-200">
-                              {formatCurrencyAbbreviated(totalComprado)}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant="outline" className="text-green-600 border-green-200">
+                                {formatCurrencyAbbreviated(totalComprado)}
+                              </Badge>
+                              {cliente["is_cliente_drop"] && markupDrop > 0 && (
+                                <span className="text-xs text-blue-600">
+                                  (+R${markupDrop.toFixed(2)} Drop)
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <Badge variant="outline" className="text-blue-600 border-blue-200">
