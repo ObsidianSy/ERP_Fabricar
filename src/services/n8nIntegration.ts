@@ -108,7 +108,7 @@ const SHEET_TO_ENDPOINT: Record<string, string> = {
 // Função genérica para enviar dados para a API
 export const enviarDados = async (request: N8nRequest): Promise<boolean> => {
   try {
-    const baseUrl = getApiUrl();
+    const baseUrl = getBaseApiUrl('/api');
     const endpoint = SHEET_TO_ENDPOINT[request.sheetName];
 
     if (!endpoint) {
@@ -154,6 +154,29 @@ export const enviarDados = async (request: N8nRequest): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('Erro ao enviar dados:', error);
+    return false;
+  }
+};
+
+// Excluir cliente
+export const excluirCliente = async (clienteId: string): Promise<boolean> => {
+  try {
+    const response = await fetch(`${getBaseApiUrl('/api')}/clientes/${clienteId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erro ao excluir cliente:', response.status, errorText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Erro ao excluir cliente:', error);
     return false;
   }
 };
@@ -454,9 +477,18 @@ export const excluirVenda = async (vendaId: string): Promise<boolean> => {
 
 // Clientes
 export const salvarCliente = async (cliente: ClienteData): Promise<boolean> => {
+  // Se vier com ID, usar upsert/PUT para atualizar
+  if (cliente && cliente['ID Cliente']) {
+    return enviarDados({
+      sheetName: 'Clientes',
+      action: 'upsert',
+      data: cliente
+    });
+  }
+
   return enviarDados({
-    sheetName: "Clientes",
-    action: "create",
+    sheetName: 'Clientes',
+    action: 'create',
     data: cliente
   });
 };

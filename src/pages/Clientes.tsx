@@ -7,7 +7,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import Layout from "@/components/Layout";
 import { formatCurrencyAbbreviated, toNumber } from "@/utils/formatters";
@@ -16,6 +26,7 @@ import { Edit, Plus, Search, Trash, Users, AlertCircle, RefreshCw } from "lucide
 import { toast } from "sonner";
 import { consultarClientes, atualizarClienteDrop } from "@/services/n8nIntegration";
 import ClienteForm from "@/components/forms/ClienteForm";
+import { excluirCliente } from "@/services/n8nIntegration";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -145,6 +156,10 @@ const Clientes = () => {
 
   const totalPages = Math.ceil(clientesFiltrados.length / pageSize);
 
+  // Edit/Delete state
+  const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
+  const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
+
   // Reset to first page when search changes
   useEffect(() => {
     setCurrentPage(1);
@@ -267,6 +282,7 @@ const Clientes = () => {
                       <TableHead className="text-right">Total Comprado</TableHead>
                       <TableHead className="text-right">Total Pago</TableHead>
                       <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -359,11 +375,84 @@ const Clientes = () => {
                               {formatCurrencyAbbreviated(saldo)}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); setClienteParaEditar(cliente); }}
+                                title="Editar cliente"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); setClienteParaExcluir(cliente); }}
+                                title="Excluir cliente"
+                                className="text-destructive"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
+
+                {/* Modal de Editar Cliente (controlado por clienteParaEditar) */}
+                <Dialog open={!!clienteParaEditar} onOpenChange={(v) => { if (!v) setClienteParaEditar(null); }}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Editar Cliente</DialogTitle>
+                    </DialogHeader>
+                    {clienteParaEditar && (
+                      <ClienteForm
+                        cliente={{
+                          "ID Cliente": clienteParaEditar["ID Cliente"],
+                          "Nome": clienteParaEditar["Nome"],
+                          "Documento": clienteParaEditar["Documento"],
+                          "Telefone": clienteParaEditar["Telefone"],
+                          "Observações": clienteParaEditar["Observações"]
+                        }}
+                        onSuccess={() => { carregarClientes(); setClienteParaEditar(null); }}
+                      />
+                    )}
+                  </DialogContent>
+                </Dialog>
+
+                {/* Confirmar exclusão */}
+                <AlertDialog open={!!clienteParaExcluir} onOpenChange={(open) => !open && setClienteParaExcluir(null)}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar Exclusão de Cliente</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="mt-2 p-2">
+                      <p><strong>Cliente:</strong> {clienteParaExcluir?.["Nome"]}</p>
+                      <p><strong>ID:</strong> {clienteParaExcluir?.["ID Cliente"]}</p>
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={async () => {
+                        if (!clienteParaExcluir) return;
+                        const ok = await excluirCliente(clienteParaExcluir["ID Cliente"]);
+                        if (ok) {
+                          toast.success("Cliente excluído com sucesso");
+                          setClienteParaExcluir(null);
+                          carregarClientes();
+                        } else {
+                          toast.error("Erro ao excluir cliente");
+                        }
+                      }} className="bg-destructive">Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 
                 {totalPages > 1 && (
                   <DataTablePagination
