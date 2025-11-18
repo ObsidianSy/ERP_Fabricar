@@ -133,6 +133,12 @@ COMMENT ON VIEW obsidian.v_usuarios_permissoes IS 'View com informações comple
 -- =====================================================
 -- VERIFICAÇÃO: Execute esta query para confirmar
 -- =====================================================
+-- Caso queira adicionar manualmente a permissão da nova página de Custos de Produtos,
+-- descomente e execute o bloco abaixo (ou rode a migration backend/migrations/108_add_custos_produtos_permissao.sql):
+-- INSERT INTO obsidian.permissoes (chave, nome, descricao, categoria, icone, rota, ordem) VALUES
+--   ('custos.produtos.visualizar', 'Custos de Produtos', 'Visualizar a página de custos de produtos (composição e cálculo de custo)', 'Produção', 'DollarSign', '/custos-produtos', 12)
+-- ON CONFLICT (chave) DO NOTHING;
+
 SELECT 
   'permissoes' AS tabela,
   COUNT(*) AS total

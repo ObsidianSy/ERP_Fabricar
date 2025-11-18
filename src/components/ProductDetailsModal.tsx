@@ -73,7 +73,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const tipo = produto?.["Tipo Produto"] || produto?.tipo_produto;
   const quantidade = toNumber(produto?.["Quantidade Atual"] ?? produto?.quantidade);
   const unidade = produto?.["Unidade de Medida"] || produto?.unidade_medida;
-  const preco = toNumber(produto?.["Preço Unitário"] ?? produto?.preco_unitario);
+  // Preferir preco_unitario (ajustado pela página de Custos) e cair para 'Preço Unitário' legado
+  const preco = toNumber(produto?.preco_unitario ?? produto?.["Preço Unitário"]);
 
   useEffect(() => {
     if (isOpen && sku) {

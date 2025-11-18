@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { api } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
@@ -25,6 +27,7 @@ const EstoqueProduto = () => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [controladoPorCustos, setControladoPorCustos] = useState(false);
   
   // Listas predefinidas
   const categorias = ["Roupas", "Acessórios", "DTF", "Personalizados"];
@@ -32,23 +35,49 @@ const EstoqueProduto = () => {
   const unidadesMedida = ["un", "kg", "g", "m", "cm", "l", "ml"];
 
   useEffect(() => {
-    if (isEditing) {
-      // Simulando busca de produto por ID
-      // Em um ambiente real, aqui faria uma chamada à API
-      // Produto mockado para demonstração
-      if (id === "1") {
-        setFormData({
-          sku: "ROUP-001",
-          nomeProduto: "Camiseta Básica Branca P",
-          categoria: "Roupas",
-          tipoProduto: "Camiseta",
-          quantidadeAtual: 10,
-          unidadeMedida: "un",
-          precoUnitario: 29.90
-        });
+    const carregarProduto = async () => {
+      if (!isEditing || !id) return;
+      try {
+        const produto = await api.get<any>(`/estoque/${id}`);
+        if (produto) {
+          setFormData({
+            sku: produto.sku || "",
+            nomeProduto: produto.nome || "",
+            categoria: produto.categoria || "",
+            tipoProduto: produto.tipo_produto || "",
+            quantidadeAtual: Number(produto.quantidade_atual) || 0,
+            unidadeMedida: produto.unidade_medida || "",
+            precoUnitario: Number(produto.preco_unitario) || 0,
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao carregar produto para edição:', err);
       }
-    }
+    };
+    carregarProduto();
   }, [id, isEditing]);
+
+  // Verifica se o produto está sendo gerenciado pela página de Custos
+  useEffect(() => {
+    const verificarCustos = async () => {
+      if (!isEditing || !formData.sku) {
+        setControladoPorCustos(false);
+        return;
+      }
+
+      try {
+        const resp = await api.get<any[]>('/receita-produto/custos/calcular');
+        const lista = Array.isArray(resp) ? resp : [];
+        const encontrado = lista.some(p => (p.sku_produto || p.sku) === formData.sku);
+        setControladoPorCustos(Boolean(encontrado));
+      } catch (err) {
+        console.error('Erro ao verificar se produto é controlado por Custos:', err);
+        setControladoPorCustos(false);
+      }
+    };
+
+    verificarCustos();
+  }, [isEditing, formData.sku]);
 
   const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -205,16 +234,40 @@ const EstoqueProduto = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="precoUnitario">Preço Unitário (R$) *</Label>
-                <Input 
-                  id="precoUnitario" 
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={formData.precoUnitario}
-                  onChange={(e) => handleChange("precoUnitario", parseFloat(e.target.value) || 0)}
-                  placeholder="Ex: 29.90"
-                  required
-                />
+                {controladoPorCustos ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-not-allowed">
+                        <Input
+                          id="precoUnitario"
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={formData.precoUnitario}
+                          placeholder="Gerenciado por Custos de Produtos"
+                          disabled
+                          readOnly
+                          className="cursor-not-allowed opacity-60 bg-muted"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p className="font-semibold">🔒 Campo bloqueado</p>
+                      <p className="text-xs mt-1">Este preço é gerenciado pela página "Custos de Produtos". Altere o valor lá para atualizar o estoque.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Input
+                    id="precoUnitario"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={formData.precoUnitario}
+                    onChange={(e) => handleChange("precoUnitario", parseFloat(e.target.value) || 0)}
+                    placeholder="Ex: 29.90"
+                    required
+                  />
+                )}
               </div>
             </div>
             

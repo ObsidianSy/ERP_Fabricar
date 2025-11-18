@@ -21,8 +21,7 @@ export async function apiRequest<T = any>(
     console.log('🔗 API Request:', {
         endpoint,
         url,
-        hostname: window.location.hostname,
-        fullUrl: window.location.origin + url
+        method: fetchOptions.method || 'GET'
     });
 
     // Preparar headers

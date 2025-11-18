@@ -21,6 +21,7 @@ import Pagamentos from "./pages/Pagamentos";
 import Relatorios from "./pages/Relatorios";
 import Despesas from "./pages/Despesas";
 import ReceitaProduto from "./pages/ReceitaProduto";
+import CustosProdutos from "./pages/CustosProdutos";
 import ImportPlanilha from "./pages/ImportPlanilha";
 import ImportPlanilhaFull from "./pages/ImportPlanilhaFull";
 import FullEnvios from "./pages/FullEnvios";
@@ -89,6 +90,7 @@ const App = () => (
                   {/* Novas Rotas */}
                   <Route path="/despesas" element={<PrivateRoute><Despesas /></PrivateRoute>} />
                   <Route path="/receita-produto" element={<PrivateRoute><ReceitaProduto /></PrivateRoute>} />
+                  <Route path="/custos-produtos" element={<PrivateRoute><CustosProdutos /></PrivateRoute>} />
                   <Route path="/import-planilha" element={<PrivateRoute><ImportPlanilha /></PrivateRoute>} />
                   <Route path="/import-planilha-full" element={<PrivateRoute><ImportPlanilhaFull /></PrivateRoute>} />
                   <Route path="/full-envios" element={<PrivateRoute><FullEnvios /></PrivateRoute>} />

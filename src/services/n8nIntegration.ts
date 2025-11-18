@@ -348,7 +348,9 @@ const mapApiDataToFrontend = (data: any[], sheetName: string): any[] => {
         'Tipo Produto': item.tipo_produto,
         'Quantidade Atual': parseFloat(item.quantidade_atual) || 0,  // ✅ Converter para número
         'Unidade de Medida': item.unidade_medida,
+        // Preferimos expor também o campo técnico para que a UI possa priorizá-lo
         'Preço Unitário': parseFloat(item.preco_unitario) || 0,  // ✅ Converter para número
+        preco_unitario: parseFloat(item.preco_unitario) || 0,
         // Mantém a URL da foto vinda do backend para ser usada na UI
         'foto_url': item.foto_url,
         'Componentes': item.componentes?.map((c: any) => ({

@@ -193,8 +193,9 @@ const Estoque = () => {
           'Tipo': p["Tipo Produto"] || p.tipo_produto || '',
           'Quantidade': p["Quantidade Atual"] || p.quantidade || 0,
           'Unidade': p["Unidade de Medida"] || p.unidade_medida || '',
-          'Preço Unitário': p["Preço Unitário"] || p.preco_unitario || 0,
-          'Valor Total': (p["Quantidade Atual"] || p.quantidade || 0) * (p["Preço Unitário"] || p.preco_unitario || 0)
+          // Preferir preco_unitario para refletir ajustes da página de Custos
+          'Preço Unitário': p.preco_unitario || p["Preço Unitário"] || 0,
+          'Valor Total': (p["Quantidade Atual"] || p.quantidade || 0) * (p.preco_unitario || p["Preço Unitário"] || 0)
         }))
         : filteredMateriasPrimas.map(mp => ({
           'SKU': mp["SKU Matéria-Prima"] || mp.sku_materia_prima || '',

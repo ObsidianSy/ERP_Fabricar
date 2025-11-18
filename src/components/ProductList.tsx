@@ -77,7 +77,8 @@ export const ProductList: React.FC<ProductListProps> = ({
         const sku = item.sku || item.SKU || item['SKU Produto'];
         const nome = item.nome || item['Nome Produto'] || item.nome;
         const quantidade = item.quantidade || item['Quantidade Atual'] || item['Quantidade Vendida'];
-        const preco = item.preco || item['Preço Unitário'] || item.preco_unitario;
+        // Preferir preco_unitario (vindo da página de Custos); fallback para campos legados
+        const preco = item.preco_unitario ?? item.preco ?? item['Preço Unitário'];
         const valorTotal = item.valorTotal || item['Valor Total'];
         const categoria = item.categoria || item.Categoria;
         const status = item.status || (quantidade && quantidade <= 10 ? 'Baixo Estoque' : 'Normal');

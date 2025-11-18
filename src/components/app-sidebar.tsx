@@ -18,7 +18,8 @@ import {
   Moon,
   Sun,
   CreditCard,
-  TrendingUp
+  TrendingUp,
+  DollarSign
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/contexts/AuthContext"
@@ -111,6 +112,12 @@ const data = {
       url: "/receita-produto",
       icon: Settings,
       permissao: "receitas.visualizar",
+    },
+    {
+      title: "Custos de Produtos",
+      url: "/custos-produtos",
+      icon: DollarSign,
+      permissao: "custos.produtos.visualizar",
     },
     {
       title: "Relatórios",

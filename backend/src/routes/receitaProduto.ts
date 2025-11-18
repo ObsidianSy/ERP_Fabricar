@@ -35,6 +35,171 @@ receitaProdutoRouter.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// GET - Buscar custos de todos os produtos com receitas
+receitaProdutoRouter.get('/custos/calcular', async (req: Request, res: Response) => {
+    try {
+        console.log('🔍 Buscando custos dos produtos...');
+        
+        // DEBUG: Ver dados brutos da receita
+        const debugReceita = await pool.query(`
+            SELECT rp.sku_produto, rp.sku_mp, rp.quantidade_por_produto, rp.unidade_medida as receita_um,
+                   mp.nome as mp_nome, mp.unidade_medida as mp_um, mp.custo_unitario
+            FROM obsidian.receita_produto rp
+            LEFT JOIN obsidian.materia_prima mp ON rp.sku_mp = mp.sku_mp
+            WHERE rp.sku_produto = 'H427'
+        `);
+        console.log('🔍 DEBUG RECEITA (H427):', JSON.stringify(debugReceita.rows, null, 2));
+        
+        const result = await pool.query(`
+            WITH base AS (
+                SELECT 
+                    rp.sku_produto,
+                    rp.sku_mp,
+                    rp.quantidade_por_produto,
+                    rp.unidade_medida AS rp_um_raw,
+                    -- normaliza RP UM
+                    CASE 
+                        WHEN rp.unidade_medida ILIKE 'm%' THEN 'M'
+                        WHEN rp.unidade_medida ILIKE 'cm%' THEN 'CM'
+                        ELSE UPPER(TRIM(COALESCE(rp.unidade_medida,'')))
+                    END AS rp_um,
+                    p.nome AS nome_produto,
+                    p.categoria,
+                    p.unidade_medida,
+                    p.preco_unitario,
+                    mp.nome AS mp_nome,
+                    mp.unidade_medida AS mp_um_raw,
+                    -- normaliza MP UM
+                    CASE 
+                        WHEN mp.unidade_medida ILIKE 'm%' THEN 'M'
+                        WHEN mp.unidade_medida ILIKE 'cm%' THEN 'CM'
+                        ELSE UPPER(TRIM(COALESCE(mp.unidade_medida,'')))
+                    END AS mp_um,
+                    COALESCE(mp.custo_unitario,0) AS mp_custo
+                FROM obsidian.receita_produto rp
+                LEFT JOIN obsidian.produtos p ON rp.sku_produto = p.sku
+                LEFT JOIN obsidian.materia_prima mp ON rp.sku_mp = mp.sku_mp
+            ), calc AS (
+                SELECT 
+                    sku_produto,
+                    nome_produto,
+                    categoria,
+                    unidade_medida,
+                    preco_unitario,
+                    SUM(
+                        CASE 
+                            WHEN mp_um = 'M' AND rp_um = 'CM' THEN (quantidade_por_produto / 100.0) * mp_custo
+                            WHEN mp_um = 'CM' AND rp_um = 'M' THEN (quantidade_por_produto * 100.0) * mp_custo
+                            ELSE quantidade_por_produto * mp_custo
+                        END
+                    ) AS custo_total_producao,
+                    json_agg(
+                        json_build_object(
+                            'sku_mp', sku_mp,
+                            'nome_mp', COALESCE(mp_nome, sku_mp),
+                            'quantidade', quantidade_por_produto,
+                            'unidade_medida', rp_um,
+                            'um_mp', mp_um,
+                            'custo_unitario_mp', mp_custo,
+                            'unit_price_effective', mp_custo,
+                            'preco_por_100', (
+                                CASE 
+                                    WHEN mp_um = 'M' AND rp_um = 'CM' THEN mp_custo
+                                    WHEN mp_um = 'CM' AND rp_um = 'M' THEN mp_custo * 100.0
+                                    ELSE mp_custo
+                                END
+                            ),
+                            'custo_total_item', (
+                                CASE 
+                                    WHEN mp_um = 'M' AND rp_um = 'CM' THEN (quantidade_por_produto / 100.0) * mp_custo
+                                    WHEN mp_um = 'CM' AND rp_um = 'M' THEN (quantidade_por_produto * 100.0) * mp_custo
+                                    ELSE quantidade_por_produto * mp_custo
+                                END
+                            )
+                        ) ORDER BY COALESCE(mp_nome, sku_mp)
+                    ) AS materias_primas
+                FROM base
+                GROUP BY sku_produto, nome_produto, categoria, unidade_medida, preco_unitario
+            )
+            SELECT * FROM calc
+            ORDER BY nome_produto NULLS LAST, sku_produto;
+        `);
+
+        console.log(`✅ Encontrados ${result.rows.length} produtos com receitas`);
+        console.log('📦 Amostra:', JSON.stringify(result.rows[0], null, 2));
+        res.json(result.rows);
+    } catch (error) {
+        console.error('❌ Erro ao buscar custos dos produtos:', error);
+        res.status(500).json({ error: 'Erro ao calcular custos dos produtos' });
+    }
+});
+
+// PUT - Atualizar preço de venda do produto
+receitaProdutoRouter.put('/produto/:sku/preco', async (req: Request, res: Response) => {
+    try {
+        const { sku } = req.params;
+        const { preco_unitario } = req.body;
+
+        // Validações
+        if (preco_unitario === undefined || preco_unitario === null) {
+            return res.status(400).json({ error: 'preco_unitario é obrigatório' });
+        }
+
+        const preco = parseFloat(preco_unitario);
+        if (isNaN(preco) || preco < 0) {
+            return res.status(400).json({ error: 'preco_unitario deve ser um número positivo' });
+        }
+
+        // Verificar se o produto existe
+        const checkResult = await pool.query(
+            'SELECT sku, nome FROM obsidian.produtos WHERE sku = $1',
+            [sku]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Produto não encontrado' });
+        }
+
+        const produto = checkResult.rows[0];
+
+        // Atualizar o preço
+        const updateResult = await pool.query(
+            `UPDATE obsidian.produtos 
+             SET preco_unitario = $1, atualizado_em = NOW()
+             WHERE sku = $2
+             RETURNING sku, nome, preco_unitario, atualizado_em`,
+            [preco, sku]
+        );
+
+        // Log da atividade
+        await logActivity({
+            user_email: (req as any).user?.email || 'sistema',
+            user_name: (req as any).user?.nome || 'Sistema',
+            action: 'UPDATE',
+            entity_type: 'produto',
+            entity_id: sku,
+            details: {
+                campo: 'preco_unitario',
+                valor_anterior: produto.preco_unitario,
+                valor_novo: preco,
+                nome_produto: produto.nome
+            },
+            ip_address: req.ip,
+            user_agent: req.get('user-agent')
+        });
+
+        console.log(`✅ Preço do produto ${sku} atualizado: R$ ${preco}`);
+        res.json({
+            success: true,
+            message: 'Preço atualizado com sucesso',
+            produto: updateResult.rows[0]
+        });
+    } catch (error) {
+        console.error('❌ Erro ao atualizar preço do produto:', error);
+        res.status(500).json({ error: 'Erro ao atualizar preço do produto' });
+    }
+});
+
 // GET - Buscar receita por SKU do produto
 receitaProdutoRouter.get('/:sku', async (req: Request, res: Response) => {
     try {
