@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Search, Edit, Trash2, Package, Upload } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, Upload, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { consultarDados, gerarIdMateriaPrima } from "@/services/n8nIntegration";
 import * as XLSX from 'xlsx';
@@ -89,6 +89,7 @@ const ReceitaProduto = () => {
     custoUnitario: "0"
   });
   const [materiaPrimaSearchTerm, setMateriaPrimaSearchTerm] = useState("");
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Funções helper definidas antes do useEffect
   const getProdutoNome = (sku: string) => {
@@ -518,6 +519,152 @@ const ReceitaProduto = () => {
     getMateriaPrimaNome(receita["SKU Matéria-Prima"])?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Função para exportar matérias-primas para Excel
+  const exportarMateriasPrimas = () => {
+    try {
+      // Preparar dados formatados
+      const dadosFormatados = materiasPrimas.map(mp => ({
+        'SKU Matéria-Prima': mp["SKU Matéria-Prima"],
+        'Nome': mp["Nome Matéria-Prima"],
+        'Categoria': mp["Categoria MP"] || '',
+        'Unidade de Medida': mp["Unidade de Medida"],
+        'Quantidade Atual': mp["Quantidade Atual"],
+        'Custo Unitário': mp["Custo Unitário"]?.toFixed(2) || '0.00',
+        'Valor Total': (mp["Quantidade Atual"] * mp["Custo Unitário"]).toFixed(2)
+      }));
+
+      // Criar workbook e worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(dadosFormatados);
+
+      // Ajustar largura das colunas
+      const colWidths = [
+        { wch: 20 }, // SKU
+        { wch: 35 }, // Nome
+        { wch: 20 }, // Categoria
+        { wch: 18 }, // Unidade
+        { wch: 18 }, // Quantidade
+        { wch: 15 }, // Custo
+        { wch: 15 }  // Valor Total
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Matérias-Primas');
+
+      // Gerar nome do arquivo com data
+      const dataAtual = new Date().toISOString().split('T')[0];
+      const nomeArquivo = `materias-primas_${dataAtual}.xlsx`;
+
+      // Fazer download
+      XLSX.writeFile(wb, nomeArquivo);
+
+      toast.success('Exportação concluída!', {
+        description: `${materiasPrimas.length} matérias-primas exportadas`
+      });
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error('Erro ao exportar matérias-primas:', error);
+      toast.error('Erro ao exportar planilha');
+    }
+  };
+
+  // Função para exportar cadastro de produtos para Excel
+  const exportarCadastroProdutos = () => {
+    try {
+      // Preparar dados dos produtos com suas receitas
+      const dadosProdutos = produtos
+        .filter(p => p.SKU && p.SKU.trim() !== '')
+        .map(produto => {
+          const receitasProduto = getReceitasPorProduto(produto.SKU);
+          const totalMPs = receitasProduto.length;
+          
+          // Calcular custo estimado do produto baseado nas MPs
+          const custoTotal = receitasProduto.reduce((acc, receita) => {
+            const mp = materiasPrimas.find(m => m["SKU Matéria-Prima"] === receita["SKU Matéria-Prima"]);
+            const custoMP = mp ? (mp["Custo Unitário"] * receita["Quantidade por Produto"]) : 0;
+            return acc + custoMP;
+          }, 0);
+
+          return {
+            'SKU Produto': produto.SKU,
+            'Nome Produto': produto["Nome Produto"],
+            'Categoria': produto.Categoria || '',
+            'Qtd Matérias-Primas': totalMPs,
+            'Custo Estimado': custoTotal.toFixed(2),
+            'Tem Receita': totalMPs > 0 ? 'Sim' : 'Não'
+          };
+        });
+
+      // Preparar dados detalhados das receitas
+      const dadosReceitas = produtos
+        .filter(p => p.SKU && p.SKU.trim() !== '')
+        .flatMap(produto => {
+          const receitasProduto = getReceitasPorProduto(produto.SKU);
+          return receitasProduto.map(receita => {
+            const mp = materiasPrimas.find(m => m["SKU Matéria-Prima"] === receita["SKU Matéria-Prima"]);
+            const custoMP = mp ? (mp["Custo Unitário"] * receita["Quantidade por Produto"]) : 0;
+
+            return {
+              'SKU Produto': produto.SKU,
+              'Nome Produto': produto["Nome Produto"],
+              'SKU Matéria-Prima': receita["SKU Matéria-Prima"],
+              'Nome Matéria-Prima': getMateriaPrimaNome(receita["SKU Matéria-Prima"]),
+              'Quantidade': receita["Quantidade por Produto"],
+              'Unidade': receita["Unidade de Medida"] || 'UN',
+              'Custo Unit. MP': mp?.["Custo Unitário"]?.toFixed(2) || '0.00',
+              'Custo Total': custoMP.toFixed(2)
+            };
+          });
+        });
+
+      // Criar workbook com duas abas
+      const wb = XLSX.utils.book_new();
+
+      // Aba 1: Resumo dos Produtos
+      const wsProdutos = XLSX.utils.json_to_sheet(dadosProdutos);
+      wsProdutos['!cols'] = [
+        { wch: 20 }, // SKU
+        { wch: 40 }, // Nome
+        { wch: 20 }, // Categoria
+        { wch: 20 }, // Qtd MPs
+        { wch: 18 }, // Custo
+        { wch: 15 }  // Tem Receita
+      ];
+      XLSX.utils.book_append_sheet(wb, wsProdutos, 'Produtos');
+
+      // Aba 2: Receitas Detalhadas
+      if (dadosReceitas.length > 0) {
+        const wsReceitas = XLSX.utils.json_to_sheet(dadosReceitas);
+        wsReceitas['!cols'] = [
+          { wch: 18 }, // SKU Produto
+          { wch: 35 }, // Nome Produto
+          { wch: 20 }, // SKU MP
+          { wch: 35 }, // Nome MP
+          { wch: 12 }, // Quantidade
+          { wch: 12 }, // Unidade
+          { wch: 15 }, // Custo Unit
+          { wch: 15 }  // Custo Total
+        ];
+        XLSX.utils.book_append_sheet(wb, wsReceitas, 'Receitas');
+      }
+
+      // Gerar nome do arquivo com data
+      const dataAtual = new Date().toISOString().split('T')[0];
+      const nomeArquivo = `produtos-receitas_${dataAtual}.xlsx`;
+
+      // Fazer download
+      XLSX.writeFile(wb, nomeArquivo);
+
+      toast.success('Exportação concluída!', {
+        description: `${dadosProdutos.length} produtos exportados${dadosReceitas.length > 0 ? ` com ${dadosReceitas.length} itens de receita` : ''}`
+      });
+      setShowExportDialog(false);
+    } catch (error) {
+      console.error('Erro ao exportar produtos:', error);
+      toast.error('Erro ao exportar planilha');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -541,6 +688,54 @@ const ReceitaProduto = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Botão de Exportação */}
+            <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Exportar Excel
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold">Exportar para Excel</h2>
+                    <p className="text-muted-foreground">
+                      Escolha o tipo de dados que deseja exportar
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={exportarMateriasPrimas}
+                      className="w-full justify-start h-auto py-4"
+                      variant="outline"
+                    >
+                      <div className="text-left">
+                        <div className="font-semibold text-base">Matérias-Primas</div>
+                        <div className="text-sm text-muted-foreground">
+                          Exporta lista completa com SKU, nome, categoria, estoque e custos
+                        </div>
+                      </div>
+                    </Button>
+                    
+                    <Button 
+                      onClick={exportarCadastroProdutos}
+                      className="w-full justify-start h-auto py-4"
+                      variant="outline"
+                    >
+                      <div className="text-left">
+                        <div className="font-semibold text-base">Cadastro de Produtos</div>
+                        <div className="text-sm text-muted-foreground">
+                          Exporta produtos com suas receitas e custo estimado
+                        </div>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
             {/* Botão de Importação */}
             <label htmlFor="import-receitas-excel">
               <Button
